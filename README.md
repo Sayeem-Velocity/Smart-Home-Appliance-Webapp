@@ -7,32 +7,32 @@ A local, responsive web dashboard for monitoring and controlling electrical load
 ## Features
 
 ### Frontend
-- ✅ Demo sign-in (hardcoded credentials)
-- ✅ Real-time gauges (voltage, current, power)
-- ✅ Energy & cost tracking
-- ✅ Historical trend charts
-- ✅ Load status indicators
-- ✅ Virtual on/off switches
-- ✅ Auto-mode control
-- ✅ Alert notifications
-- ✅ AI chatbot popup
-- ✅ Responsive design
-- ✅ WebSocket real-time updates
+- Demo sign-in (hardcoded credentials)
+- Real-time gauges (voltage, current, power)
+- Energy & cost tracking
+- Historical trend charts
+- Load status indicators
+- Virtual on/off switches
+- Auto-mode control
+-Alert notifications
+  AI chatbot popup
+- Responsive design
+- WebSocket real-time updates
 
 ### Backend
-- ✅ Express.js REST API
-- ✅ Socket.io WebSocket
-- ✅ Simulated telemetry generation
-- ✅ Threshold-based auto-control
-- ✅ PostgreSQL data storage
-- ✅ Gemini AI integration
+- Express.js REST API
+- Socket.io WebSocket
+- Simulated telemetry generation
+- Threshold-based auto-control
+- PostgreSQL data storage
+- Gemini AI integration
 
 ### AI Features (Gemini)
-- ✅ Chatbot for system queries
-- ✅ Anomaly detection
-- ✅ Control recommendations
-- ✅ Pattern analysis
-- ✅ AI event logging
+- Chatbot for system queries
+- Anomaly detection
+- Control recommendations
+- Pattern analysis
+- AI event logging
 
 ---
 
