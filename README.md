@@ -14,13 +14,6 @@ A local, responsive web dashboard for monitoring and controlling electrical load
 - Load status indicators
 - Virtual on/off switches
 - Auto-mode control
-<<<<<<< HEAD
-- Alert notifications
-- AI chatbot popup
-=======
--Alert notifications
-  AI chatbot popup
->>>>>>> dev
 - Responsive design
 - WebSocket real-time updates
 
