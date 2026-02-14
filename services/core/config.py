@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     app_version: str = "1.0.0"
     debug: bool = False
     
-    # API Keys
+    # API Keys - Read from .env file in parent directory
     gemini_api_key: Optional[str] = None
     
     # Server
@@ -45,8 +45,12 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     
     class Config:
-        env_file = ".env"
+        # Look for .env in parent directory (project root)
+        import os
+        current_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        env_file = os.path.join(current_dir, ".env")
         env_file_encoding = "utf-8"
+        case_sensitive = False
         extra = "ignore"
 
     @property

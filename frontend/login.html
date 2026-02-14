@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Smart Load Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-container {
+            background: #1e293b;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header i {
+            font-size: 48px;
+            color: #3b82f6;
+            margin-bottom: 15px;
+        }
+
+        .login-header h1 {
+            font-size: 24px;
+            color: #f8fafc;
+            margin-bottom: 8px;
+        }
+
+        .login-header p {
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .input-group i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #64748b;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 15px 15px 15px 45px;
+            background: #0f172a;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            color: #f8fafc;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 15px;
+            background: #3b82f6;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .login-btn:hover {
+            background: #2563eb;
+        }
+
+        .login-hint {
+            text-align: center;
+            color: #64748b;
+            font-size: 13px;
+            margin-top: 15px;
+        }
+
+        .login-error {
+            color: #ef4444;
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .login-error.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <i class="fas fa-bolt"></i>
+            <h1>Smart Load Dashboard</h1>
+            <p>Electrical Load Monitoring System</p>
+        </div>
+        
+        <div class="input-group">
+            <i class="fas fa-user"></i>
+            <input type="text" id="username" placeholder="Username" autocomplete="off">
+        </div>
+        
+        <div class="input-group">
+            <i class="fas fa-lock"></i>
+            <input type="password" id="password" placeholder="Password" autocomplete="off">
+        </div>
+        
+        <button id="loginBtn" class="login-btn">
+            <i class="fas fa-sign-in-alt"></i> Sign In
+        </button>
+        
+        <p class="login-hint">Demo: demo/demo123 or admin/admin123</p>
+        
+        <div id="loginError" class="login-error"></div>
+    </div>
+
+    <script>
+        // Demo credentials for hint only
+        const DEMO_USERS = {
+            'demo': { password: 'demo123', role: 'user', name: 'Demo User' },
+            'admin': { password: 'admin123', role: 'admin', name: 'Administrator' }
+        };
+
+        async function login() {
+            var username = document.getElementById('username').value.trim().toLowerCase();
+            var password = document.getElementById('password').value.trim();
+            var errorEl = document.getElementById('loginError');
+            var loginBtn = document.getElementById('loginBtn');
+
+            if (!username || !password) {
+                errorEl.textContent = 'Please enter both username and password';
+                errorEl.classList.add('show');
+                return;
+            }
+
+            console.log('Attempting login with:', username);
+            
+            // Disable button during request
+            loginBtn.textContent = 'Logging in...';
+            loginBtn.disabled = true;
+            errorEl.classList.remove('show');
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    console.log('Login successful!', data);
+                    
+                    // Store REAL auth token from server
+                    localStorage.setItem('authToken', data.token);
+                    localStorage.setItem('currentUser', JSON.stringify(data.user));
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    // Redirect to dashboard
+                    window.location.href = 'dashboard.html';
+                } else {
+                    console.log('Login failed:', data.message);
+                    errorEl.textContent = data.message || 'Invalid credentials';
+                    errorEl.classList.add('show');
+                    loginBtn.textContent = 'Sign In';
+                    loginBtn.disabled = false;
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                errorEl.textContent = 'Connection failed. Is the server running?';
+                errorEl.classList.add('show');
+                loginBtn.textContent = 'Sign In';
+                loginBtn.disabled = false;
+            }
+        }
+
+        // Login button click
+        document.getElementById('loginBtn').addEventListener('click', login);
+
+        // Enter key support
+        document.getElementById('password').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                login();
+            }
+        });
+
+        document.getElementById('username').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('password').focus();
+            }
+        });
+    </script>
+</body>
+</html>

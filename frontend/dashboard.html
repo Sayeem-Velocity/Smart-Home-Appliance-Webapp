@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Load Monitor - ESP32 Dashboard</title>
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <!-- Auth Check -->
+    <script>
+        if (!localStorage.getItem('authToken')) {
+            window.location.href = '/login.html';
+        }
+    </script>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-bolt"></i>
+                <span>SmartLoad</span>
+            </div>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="#" class="nav-item active" data-page="dashboard">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="#" class="nav-item" data-page="loads">
+                <i class="fas fa-plug"></i>
+                <span>Load Control</span>
+            </a>
+            <a href="#" class="nav-item" data-page="thresholds">
+                <i class="fas fa-sliders-h"></i>
+                <span>Thresholds</span>
+            </a>
+            <a href="#" class="nav-item" data-page="analytics">
+                <i class="fas fa-chart-line"></i>
+                <span>Analytics</span>
+            </a>
+            <a href="#" class="nav-item" data-page="database">
+                <i class="fas fa-database"></i>
+                <span>Database</span>
+            </a>
+            <a href="#" class="nav-item" data-page="ai">
+                <i class="fas fa-robot"></i>
+                <span>AI Chat</span>
+            </a>
+            <a href="#" class="nav-item" data-page="settings">
+                <i class="fas fa-cog"></i>
+                <span>Settings</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <i class="fas fa-user-circle"></i>
+                <span id="username">Demo User</span>
+            </div>
+            <button id="logoutBtn" class="logout-btn">
+                <i class="fas fa-sign-out-alt"></i>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <button id="sidebarToggle" class="sidebar-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1>Dashboard Overview</h1>
+            </div>
+            <div class="header-right">
+                <div class="connection-status" id="connectionStatus">
+                    <span class="status-dot disconnected"></span>
+                    <span class="status-text">Disconnected</span>
+                </div>
+                <div class="datetime" id="datetime"></div>
+            </div>
+        </header>
+
+        <!-- Dashboard Page -->
+        <div id="dashboardPage" class="page active">
+            <!-- AI Autonomous Control Panel -->
+            <div class="ai-control-panel">
+                <div class="ai-panel-header">
+                    <div class="ai-brain-icon">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <div class="ai-panel-title">
+                        <h3>AI Autonomous Control</h3>
+                        <div class="ai-status-indicator">
+                            <span class="status-dot" id="aiStatusDot"></span>
+                            <span class="ai-status-text" id="aiStatusText">AI Control Inactive</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="ai-panel-actions">
+                    <button class="ai-btn enable" id="enableAIBtn" onclick="toggleAIControl(!aiControlEnabled)">
+                        <i class="fas fa-power-off"></i> Enable AI Control
+                    </button>
+                    <button class="ai-btn trigger" id="triggerDecisionBtn" onclick="triggerAIDecision()">
+                        <i class="fas fa-bolt"></i> Trigger Decision
+                    </button>
+                </div>
+            </div>
+
+            <!-- ESP32 Connection Status -->
+            <div class="esp32-status-panel">
+                <div class="esp32-info">
+                    <div class="esp32-icon">
+                        <i class="fas fa-microchip"></i>
+                    </div>
+                    <div class="esp32-details">
+                        <h4>ESP32 Hardware Status</h4>
+                        <span class="esp32-connection" id="esp32ConnectionText">Waiting for connection...</span>
+                    </div>
+                </div>
+                <div class="esp32-stats">
+                    <div class="esp-stat">
+                        <span class="esp-stat-label">MQTT</span>
+                        <span class="esp-stat-value" id="mqttStatus">--</span>
+                    </div>
+                    <div class="esp-stat">
+                        <span class="esp-stat-label">Last Update</span>
+                        <span class="esp-stat-value" id="lastUpdateTime">--</span>
+                    </div>
+                    <div class="esp-stat">
+                        <span class="esp-stat-label">Relay 1</span>
+                        <span class="esp-stat-value relay-status" id="relay1HWStatus">OFF</span>
+                    </div>
+                    <div class="esp-stat">
+                        <span class="esp-stat-label">Relay 2</span>
+                        <span class="esp-stat-value relay-status" id="relay2HWStatus">OFF</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Cards Row -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon voltage">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-label">Avg Voltage</span>
+                        <span class="stat-value" id="totalVoltage">0 V</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon current">
+                        <i class="fas fa-water"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-label">Total Current</span>
+                        <span class="stat-value" id="totalCurrent">0 A</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon power">
+                        <i class="fas fa-fire"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-label">Total Power</span>
+                        <span class="stat-value" id="totalPower">0 W</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon temp">
+                        <i class="fas fa-thermometer-half"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-label">Temperature</span>
+                        <span class="stat-value" id="tempValue">0 °C</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Load Cards Row -->
+            <div class="loads-row">
+                <!-- Load 1 Card - AC Heater -->
+                <div class="load-card" id="load1Card">
+                    <div class="load-header">
+                        <h3><i class="fas fa-fire-alt load-icon" id="load1Icon"></i> AC Heater</h3>
+                        <div class="load-status" id="load1Status">
+                            <span class="status-badge off">OFF</span>
+                        </div>
+                    </div>
+                    <div class="load-gauges">
+                        <div class="gauge-container">
+                            <canvas id="voltageGauge1" width="120" height="120"></canvas>
+                            <div class="gauge-label">
+                                <span class="gauge-value" id="voltage1">0</span>
+                                <span class="gauge-unit">V</span>
+                            </div>
+                            <span class="gauge-title">Voltage</span>
+                        </div>
+                        <div class="gauge-container">
+                            <canvas id="currentGauge1" width="120" height="120"></canvas>
+                            <div class="gauge-label">
+                                <span class="gauge-value" id="current1">0</span>
+                                <span class="gauge-unit">A</span>
+                            </div>
+                            <span class="gauge-title">Current</span>
+                        </div>
+                        <div class="gauge-container">
+                            <canvas id="powerGauge1" width="120" height="120"></canvas>
+                            <div class="gauge-label">
+                                <span class="gauge-value" id="power1">0</span>
+                                <span class="gauge-unit">W</span>
+                            </div>
+                            <span class="gauge-title">Power</span>
+                        </div>
+                    </div>
+                    <div class="load-controls">
+                        <button class="control-btn on" id="load1OnBtn" onclick="controlRelay(1, true)">
+                            <i class="fas fa-power-off"></i> Turn ON
+                        </button>
+                        <button class="control-btn off active" id="load1OffBtn" onclick="controlRelay(1, false)">
+                            <i class="fas fa-power-off"></i> Turn OFF
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Load 2 Card - AC Bulb -->
+                <div class="load-card" id="load2Card">
+                    <div class="load-header">
+                        <h3><i class="fas fa-lightbulb load-icon" id="load2Icon"></i> AC Bulb</h3>
+                        <div class="load-status" id="load2Status">
+                            <span class="status-badge off">OFF</span>
+                        </div>
+                    </div>
+                    <div class="load-gauges">
+                        <div class="gauge-container">
+                            <canvas id="voltageGauge2" width="120" height="120"></canvas>
+                            <div class="gauge-label">
+                                <span class="gauge-value" id="voltage2">0</span>
+                                <span class="gauge-unit">V</span>
+                            </div>
+                            <span class="gauge-title">Voltage</span>
+                        </div>
+                        <div class="gauge-container">
+                            <canvas id="currentGauge2" width="120" height="120"></canvas>
+                            <div class="gauge-label">
+                                <span class="gauge-value" id="current2">0</span>
+                                <span class="gauge-unit">A</span>
+                            </div>
+                            <span class="gauge-title">Current</span>
+                        </div>
+                        <div class="gauge-container">
+                            <canvas id="powerGauge2" width="120" height="120"></canvas>
+                            <div class="gauge-label">
+                                <span class="gauge-value" id="power2">0</span>
+                                <span class="gauge-unit">W</span>
+                            </div>
+                            <span class="gauge-title">Power</span>
+                        </div>
+                    </div>
+                    <div class="load-controls">
+                        <button class="control-btn on" id="load2OnBtn" onclick="controlRelay(2, true)">
+                            <i class="fas fa-power-off"></i> Turn ON
+                        </button>
+                        <button class="control-btn off active" id="load2OffBtn" onclick="controlRelay(2, false)">
+                            <i class="fas fa-power-off"></i> Turn OFF
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Load 3 Card - DC Fan (Inactive) -->
+                <div class="load-card inactive" id="load3Card">
+                    <div class="load-header">
+                        <h3><i class="fas fa-fan load-icon"></i> DC Fan</h3>
+                        <div class="load-status">
+                            <span class="status-badge inactive">INACTIVE</span>
+                        </div>
+                    </div>
+                    <div class="load-gauges dimmed">
+                        <div class="gauge-container">
+                            <canvas id="voltageGauge3" width="120" height="120"></canvas>
+                            <div class="gauge-label">
+                                <span class="gauge-value">--</span>
+                                <span class="gauge-unit">V</span>
+                            </div>
+                            <span class="gauge-title">Voltage</span>
+                        </div>
+                        <div class="gauge-container">
+                            <canvas id="currentGauge3" width="120" height="120"></canvas>
+                            <div class="gauge-label">
+                                <span class="gauge-value">--</span>
+                                <span class="gauge-unit">A</span>
+                            </div>
+                            <span class="gauge-title">Current</span>
+                        </div>
+                        <div class="gauge-container">
+                            <canvas id="powerGauge3" width="120" height="120"></canvas>
+                            <div class="gauge-label">
+                                <span class="gauge-value">--</span>
+                                <span class="gauge-unit">W</span>
+                            </div>
+                            <span class="gauge-title">Power</span>
+                        </div>
+                    </div>
+                    <div class="load-controls">
+                        <button class="control-btn on disabled" disabled>
+                            <i class="fas fa-power-off"></i> Turn ON
+                        </button>
+                        <button class="control-btn off disabled" disabled>
+                            <i class="fas fa-power-off"></i> Turn OFF
+                        </button>
+                    </div>
+                    <div class="inactive-overlay">
+                        <span>Coming Soon</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Environment Card -->
+            <div class="environment-row">
+                <div class="environment-card">
+                    <div class="env-header">
+                        <h3><i class="fas fa-cloud-sun"></i> Environment Monitoring</h3>
+                        <span class="sensor-badge">DHT11 Sensor</span>
+                    </div>
+                    <div class="environment-gauges">
+                        <div class="env-gauge-container">
+                            <canvas id="tempGauge" width="150" height="150"></canvas>
+                            <div class="env-gauge-label">
+                                <span class="env-gauge-value" id="tempDisplay">0</span>
+                                <span class="env-gauge-unit">°C</span>
+                            </div>
+                            <span class="env-gauge-title">Temperature</span>
+                        </div>
+                        <div class="env-gauge-container">
+                            <canvas id="humidityGauge" width="150" height="150"></canvas>
+                            <div class="env-gauge-label">
+                                <span class="env-gauge-value" id="humidityDisplay">0</span>
+                                <span class="env-gauge-unit">%</span>
+                            </div>
+                            <span class="env-gauge-title">Humidity</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="charts-row">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-chart-area"></i> Power Consumption</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="powerChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-chart-line"></i> Voltage & Current</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="vcChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alerts Section -->
+            <div class="alerts-section">
+                <div class="alerts-card">
+                    <div class="alerts-header">
+                        <h3><i class="fas fa-bell"></i> Recent Alerts</h3>
+                        <button class="clear-alerts-btn" onclick="clearAlerts()">Clear All</button>
+                    </div>
+                    <div class="alerts-list" id="alertsList">
+                        <div class="alert-item info">
+                            <i class="fas fa-info-circle"></i>
+                            <span>System started. Waiting for ESP32 connection...</span>
+                            <span class="alert-time">Just now</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Load Control Page -->
+        <div id="loadsPage" class="page">
+            <div class="page-header">
+                <h2>Load Control Panel</h2>
+            </div>
+            <div class="load-control-grid">
+                <!-- AC Heater Control Panel -->
+                <div class="control-panel" id="controlPanel1">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <i class="fas fa-fire-alt panel-icon" id="panel1Icon"></i>
+                            <h3>AC Heater</h3>
+                        </div>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="load1Toggle" onchange="toggleLoad(1, this.checked)">
+                            <label for="load1Toggle"></label>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="info-row">
+                            <span>Status:</span>
+                            <span id="load1ControlStatus" class="status-text off">OFF</span>
+                        </div>
+                        <div class="info-row">
+                            <span>Voltage:</span>
+                            <span id="load1ControlVoltage">0 V</span>
+                        </div>
+                        <div class="info-row">
+                            <span>Current:</span>
+                            <span id="load1ControlCurrent">0 A</span>
+                        </div>
+                        <div class="info-row">
+                            <span>Power:</span>
+                            <span id="load1ControlPower">0 W</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AC Bulb Control Panel -->
+                <div class="control-panel" id="controlPanel2">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <i class="fas fa-lightbulb panel-icon" id="panel2Icon"></i>
+                            <h3>AC Bulb</h3>
+                        </div>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="load2Toggle" onchange="toggleLoad(2, this.checked)">
+                            <label for="load2Toggle"></label>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="info-row">
+                            <span>Status:</span>
+                            <span id="load2ControlStatus" class="status-text off">OFF</span>
+                        </div>
+                        <div class="info-row">
+                            <span>Voltage:</span>
+                            <span id="load2ControlVoltage">0 V</span>
+                        </div>
+                        <div class="info-row">
+                            <span>Current:</span>
+                            <span id="load2ControlCurrent">0 A</span>
+                        </div>
+                        <div class="info-row">
+                            <span>Power:</span>
+                            <span id="load2ControlPower">0 W</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DC Fan Control Panel (Inactive) -->
+                <div class="control-panel inactive">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <i class="fas fa-fan panel-icon"></i>
+                            <h3>DC Fan</h3>
+                        </div>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="load3Toggle" disabled>
+                            <label for="load3Toggle"></label>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="info-row">
+                            <span>Status:</span>
+                            <span class="status-text inactive">INACTIVE</span>
+                        </div>
+                        <div class="info-row">
+                            <span>Note:</span>
+                            <span>Coming soon...</span>
+                        </div>
+                    </div>
+                    <div class="inactive-overlay"><span>Coming Soon</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics Page -->
+        <div id="analyticsPage" class="page">
+            <div class="page-header">
+                <h2>Analytics & Reports</h2>
+            </div>
+            <div class="analytics-grid">
+                <div class="analytics-card full-width">
+                    <h3><i class="fas fa-chart-bar"></i> Energy Consumption History</h3>
+                    <div class="chart-container large">
+                        <canvas id="energyHistoryChart"></canvas>
+                    </div>
+                </div>
+                <div class="analytics-card">
+                    <h3><i class="fas fa-pie-chart"></i> Load Distribution</h3>
+                    <div class="chart-container">
+                        <canvas id="loadDistributionChart"></canvas>
+                    </div>
+                </div>
+                <div class="analytics-card">
+                    <h3><i class="fas fa-temperature-high"></i> Temperature Trend</h3>
+                    <div class="chart-container">
+                        <canvas id="temperatureChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Database Page -->
+        <div id="databasePage" class="page">
+            <div class="page-header">
+                <h2><i class="fas fa-database"></i> Database Records</h2>
+                <div class="db-controls">
+                    <select id="dbTableSelect" onchange="loadDatabaseTable()">
+                        <option value="telemetry">All Telemetry</option>
+                        <option value="load1">AC Heater (Load 1)</option>
+                        <option value="load2">AC Bulb (Load 2)</option>
+                        <option value="dht11">DHT11 Sensor</option>
+                    </select>
+                    <button class="refresh-btn" onclick="loadDatabaseTable()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                    <button class="export-btn" onclick="exportData()">
+                        <i class="fas fa-download"></i> Export CSV
+                    </button>
+                </div>
+            </div>
+            <div class="database-stats" id="dbStats">
+                <div class="db-stat">
+                    <span class="db-stat-label">Total Records</span>
+                    <span class="db-stat-value" id="totalRecords">0</span>
+                </div>
+                <div class="db-stat">
+                    <span class="db-stat-label">Load 1 Records</span>
+                    <span class="db-stat-value" id="load1Records">0</span>
+                </div>
+                <div class="db-stat">
+                    <span class="db-stat-label">Load 2 Records</span>
+                    <span class="db-stat-value" id="load2Records">0</span>
+                </div>
+                <div class="db-stat">
+                    <span class="db-stat-label">DHT11 Records</span>
+                    <span class="db-stat-value" id="dht11Records">0</span>
+                </div>
+            </div>
+            <div class="database-table-container">
+                <table class="database-table" id="databaseTable">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Voltage (V)</th>
+                            <th>Current (A)</th>
+                            <th>Power (W)</th>
+                            <th>Relay State</th>
+                        </tr>
+                    </thead>
+                    <tbody id="databaseTableBody">
+                        <tr>
+                            <td colspan="5" class="no-data">No data available. Connect ESP32 to start collecting data.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pagination">
+                <button onclick="changePage(-1)"><i class="fas fa-chevron-left"></i></button>
+                <span id="pageInfo">Page 1 of 1</span>
+                <button onclick="changePage(1)"><i class="fas fa-chevron-right"></i></button>
+            </div>
+        </div>
+
+        <!-- AI Chat Page -->
+        <div id="aiPage" class="page">
+            <div class="page-header">
+                <h2><i class="fas fa-robot"></i> AI Assistant</h2>
+            </div>
+            <div class="ai-container">
+                <div class="ai-chat-container">
+                    <div class="ai-chat-header">
+                        <div class="ai-avatar"><i class="fas fa-robot"></i></div>
+                        <div class="ai-info">
+                            <h3>Smart Load AI</h3>
+                            <span class="ai-status">Online - Ready to help</span>
+                        </div>
+                        <button class="clear-chat-btn" onclick="clearChatHistory()">
+                            <i class="fas fa-trash"></i> Clear
+                        </button>
+                    </div>
+                    <div class="ai-chat-messages" id="aiChatMessages">
+                        <div class="ai-message bot">
+                            <div class="message-avatar"><i class="fas fa-robot"></i></div>
+                            <div class="message-content">
+                                <p>Hello! I'm your Smart Load AI assistant. I can help you with:</p>
+                                <ul>
+                                    <li>Analyzing power consumption patterns</li>
+                                    <li>Providing energy-saving recommendations</li>
+                                    <li>Answering questions about your loads</li>
+                                    <li>Monitoring system health</li>
+                                </ul>
+                                <p>How can I assist you today?</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ai-chat-input">
+                        <input type="text" id="aiChatInput" placeholder="Ask me anything..." onkeypress="handleChatKeypress(event)">
+                        <button onclick="sendChatMessage()"><i class="fas fa-paper-plane"></i></button>
+                    </div>
+                </div>
+                <div class="ai-suggestions">
+                    <h4>Quick Questions</h4>
+                    <button class="suggestion-btn" onclick="askQuestion('What is my current power consumption?')"><i class="fas fa-bolt"></i> Current power usage</button>
+                    <button class="suggestion-btn" onclick="askQuestion('How can I save energy and reduce my electricity bill?')"><i class="fas fa-leaf"></i> Energy saving tips</button>
+                    <button class="suggestion-btn" onclick="askQuestion('Analyze my usage patterns and predict monthly cost')"><i class="fas fa-chart-bar"></i> Cost prediction</button>
+                    <button class="suggestion-btn" onclick="askQuestion('What is the temperature and humidity?')"><i class="fas fa-thermometer-half"></i> Environment status</button>
+                    <button class="suggestion-btn" onclick="askQuestion('Tell me about the AC Heater status')"><i class="fas fa-plug"></i> AC Heater details</button>
+                    <button class="suggestion-btn" onclick="askQuestion('Tell me about the AC Bulb status')"><i class="fas fa-lightbulb"></i> AC Bulb details</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Thresholds Page -->
+        <div id="thresholdsPage" class="page">
+            <div class="page-header">
+                <h2><i class="fas fa-sliders-h"></i> Threshold Control</h2>
+                <p class="page-description">Configure power thresholds for automatic load control. When power exceeds the threshold, the relay will automatically turn off.</p>
+            </div>
+            <div class="threshold-grid">
+                <!-- AC Heater Threshold -->
+                <div class="threshold-card" id="threshold1Card">
+                    <div class="threshold-header">
+                        <div class="threshold-icon heater">
+                            <i class="fas fa-fire-alt"></i>
+                        </div>
+                        <div class="threshold-title">
+                            <h3>AC Heater (Load 1)</h3>
+                            <span class="threshold-status" id="threshold1Status">Active</span>
+                        </div>
+                    </div>
+                    <div class="threshold-body">
+                        <div class="current-power">
+                            <span class="power-label">Current Power</span>
+                            <span class="power-value" id="threshold1Power">0 W</span>
+                        </div>
+                        <div class="threshold-slider-container">
+                            <label>Power Threshold</label>
+                            <div class="slider-row">
+                                <input type="range" id="threshold1Slider" class="threshold-slider" 
+                                    min="50" max="500" value="120" step="10"
+                                    oninput="updateThresholdValue(1, this.value)">
+                                <input type="number" id="threshold1Value" class="threshold-input" 
+                                    min="50" max="500" value="120" step="10"
+                                    onchange="updateThresholdSlider(1, this.value)">
+                                <span class="threshold-unit">W</span>
+                            </div>
+                            <div class="slider-labels">
+                                <span>50W</span>
+                                <span>500W</span>
+                            </div>
+                        </div>
+                        <div class="threshold-info">
+                            <div class="info-item">
+                                <i class="fas fa-bolt"></i>
+                                <span>Max Rated: <strong>150W</strong></span>
+                            </div>
+                            <div class="info-item">
+                                <i class="fas fa-shield-alt"></i>
+                                <span>Auto-off when exceeded</span>
+                            </div>
+                        </div>
+                        <div class="threshold-actions">
+                            <button class="threshold-btn save" onclick="saveThreshold(1)">
+                                <i class="fas fa-save"></i> Save Threshold
+                            </button>
+                            <button class="threshold-btn sync" onclick="syncThresholdFromESP32(1)">
+                                <i class="fas fa-sync-alt"></i> Sync from ESP32
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AC Bulb Threshold -->
+                <div class="threshold-card" id="threshold2Card">
+                    <div class="threshold-header">
+                        <div class="threshold-icon bulb">
+                            <i class="fas fa-lightbulb"></i>
+                        </div>
+                        <div class="threshold-title">
+                            <h3>AC Bulb (Load 2)</h3>
+                            <span class="threshold-status" id="threshold2Status">Active</span>
+                        </div>
+                    </div>
+                    <div class="threshold-body">
+                        <div class="current-power">
+                            <span class="power-label">Current Power</span>
+                            <span class="power-value" id="threshold2Power">0 W</span>
+                        </div>
+                        <div class="threshold-slider-container">
+                            <label>Power Threshold</label>
+                            <div class="slider-row">
+                                <input type="range" id="threshold2Slider" class="threshold-slider" 
+                                    min="5" max="100" value="15" step="1"
+                                    oninput="updateThresholdValue(2, this.value)">
+                                <input type="number" id="threshold2Value" class="threshold-input" 
+                                    min="5" max="100" value="15" step="1"
+                                    onchange="updateThresholdSlider(2, this.value)">
+                                <span class="threshold-unit">W</span>
+                            </div>
+                            <div class="slider-labels">
+                                <span>5W</span>
+                                <span>100W</span>
+                            </div>
+                        </div>
+                        <div class="threshold-info">
+                            <div class="info-item">
+                                <i class="fas fa-bolt"></i>
+                                <span>Max Rated: <strong>15W</strong></span>
+                            </div>
+                            <div class="info-item">
+                                <i class="fas fa-shield-alt"></i>
+                                <span>Auto-off when exceeded</span>
+                            </div>
+                        </div>
+                        <div class="threshold-actions">
+                            <button class="threshold-btn save" onclick="saveThreshold(2)">
+                                <i class="fas fa-save"></i> Save Threshold
+                            </button>
+                            <button class="threshold-btn sync" onclick="syncThresholdFromESP32(2)">
+                                <i class="fas fa-sync-alt"></i> Sync from ESP32
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DC Fan Threshold (Inactive) -->
+                <div class="threshold-card inactive">
+                    <div class="threshold-header">
+                        <div class="threshold-icon fan">
+                            <i class="fas fa-fan"></i>
+                        </div>
+                        <div class="threshold-title">
+                            <h3>DC Fan (Load 3)</h3>
+                            <span class="threshold-status inactive">Inactive</span>
+                        </div>
+                    </div>
+                    <div class="threshold-body">
+                        <div class="current-power">
+                            <span class="power-label">Current Power</span>
+                            <span class="power-value">-- W</span>
+                        </div>
+                        <div class="threshold-slider-container dimmed">
+                            <label>Power Threshold</label>
+                            <div class="slider-row">
+                                <input type="range" class="threshold-slider" disabled value="50">
+                                <input type="number" class="threshold-input" disabled value="50">
+                                <span class="threshold-unit">W</span>
+                            </div>
+                        </div>
+                        <div class="threshold-info">
+                            <div class="info-item">
+                                <i class="fas fa-info-circle"></i>
+                                <span>Coming soon...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="inactive-overlay"><span>Coming Soon</span></div>
+                </div>
+            </div>
+
+            <!-- Threshold History -->
+            <div class="threshold-history-section">
+                <h3><i class="fas fa-history"></i> Threshold Events</h3>
+                <div class="threshold-history" id="thresholdHistory">
+                    <div class="history-item info">
+                        <i class="fas fa-info-circle"></i>
+                        <span>System ready. Threshold events will appear here.</span>
+                        <span class="history-time">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Page -->
+        <div id="settingsPage" class="page">
+            <div class="page-header">
+                <h2>Settings</h2>
+            </div>
+            <div class="settings-grid">
+                <div class="settings-card">
+                    <h3><i class="fas fa-bell"></i> Alert Thresholds</h3>
+                    <div class="setting-item">
+                        <label>High Voltage Warning (V)</label>
+                        <input type="number" id="highVoltage" value="250" min="200" max="300">
+                    </div>
+                    <div class="setting-item">
+                        <label>High Current Warning (A)</label>
+                        <input type="number" id="highCurrent" value="10" min="1" max="30" step="0.5">
+                    </div>
+                    <div class="setting-item">
+                        <label>High Temperature Warning (°C)</label>
+                        <input type="number" id="highTemp" value="35" min="25" max="50">
+                    </div>
+                    <button class="save-btn" onclick="saveSettings()">Save Settings</button>
+                </div>
+                <div class="settings-card">
+                    <h3><i class="fas fa-network-wired"></i> Connection Info</h3>
+                    <div class="info-display">
+                        <div class="info-row">
+                            <span>Server:</span>
+                            <span id="serverAddress">localhost:3000</span>
+                        </div>
+                        <div class="info-row">
+                            <span>MQTT Broker:</span>
+                            <span id="mqttBroker">192.168.0.182:1883</span>
+                        </div>
+                        <div class="info-row">
+                            <span>ESP32 Status:</span>
+                            <span id="esp32Status" class="status-text off">Disconnected</span>
+                        </div>
+                        <div class="info-row">
+                            <span>Last Data:</span>
+                            <span id="lastDataTime">Never</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="js/dashboard.js"></script>
+</body>
+</html>

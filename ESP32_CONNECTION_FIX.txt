@@ -1,0 +1,85 @@
+===========================================
+ESP32 MQTT CONNECTION TROUBLESHOOTING GUIDE
+===========================================
+
+Your Error: "Failed, rc=-2 - Cannot connect to MQTT broker"
+
+QUICK FIX (3 Steps):
+--------------------
+
+STEP 1: FIX WINDOWS FIREWALL
+=============================
+The main issue is Windows Firewall blocking MQTT port 1883.
+
+1. Press Windows Key
+2. Type "PowerShell"
+3. Right-click "Windows PowerShell"
+4. Click "Run as administrator"
+5. Copy and paste this command:
+
+   netsh advfirewall firewall add rule name="MQTT Broker" dir=in action=allow protocol=TCP localport=1883
+
+6. Press Enter
+7. You should see "Ok."
+
+
+STEP 2: VERIFY NETWORK SETUP
+=============================
+Both PC and ESP32 must be on the SAME WiFi network.
+
+Current Setup:
+- ESP32 WiFi: CUET Student_5G
+- PC WiFi: Check by running GET_HOTSPOT_IP.bat
+
+Your PC IP on CUET Student_5G: 192.168.0.182 ✓ (Already in Arduino code)
+
+
+STEP 3: TEST CONNECTION
+========================
+1. Make sure Node.js server is running (you should see "MQTT Broker running on port 1883")
+2. Upload the Arduino code to ESP32
+3. Open Serial Monitor (115200 baud)
+4. ESP32 should show:
+   ✅ WiFi connected!
+   ✅ MQTT Connected!
+   📤 Publishing data...
+
+
+IF USING PERSONAL HOTSPOT INSTEAD:
+===================================
+1. Enable your phone's WiFi hotspot
+2. Note the hotspot name and password
+3. Connect your PC to the hotspot
+4. Run GET_HOTSPOT_IP.bat to find new PC IP
+5. Update Arduino code with new IP and hotspot credentials
+6. Upload to ESP32
+
+
+COMMON ISSUES:
+==============
+❌ rc=-2 → Firewall blocking OR wrong IP address
+❌ rc=-4 → MQTT broker not running (start server first!)
+❌ WiFi failed → Check SSID/password in Arduino code
+
+
+VERIFICATION CHECKLIST:
+=======================
+☐ Node.js server running (npm start)
+☐ Firewall rule added (run PowerShell command)
+☐ ESP32 connected to same WiFi as PC
+☐ Correct PC IP in Arduino code (192.168.0.182)
+☐ Serial Monitor shows WiFi connected
+☐ Serial Monitor shows MQTT connected
+☐ Dashboard at http://localhost:3000 shows live data
+
+
+CURRENT STATUS:
+===============
+✅ Server running on port 3000
+✅ MQTT Broker listening on port 1883
+⚠️ Firewall rule needed - Run PowerShell command above!
+
+
+Once firewall is fixed, ESP32 will connect automatically!
+Dashboard will show real-time voltage, current, and power data.
+

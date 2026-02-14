@@ -145,6 +145,50 @@ CREATE INDEX idx_ai_events_created ON ai_events(created_at DESC);
 CREATE INDEX idx_ai_events_type ON ai_events(event_type);
 
 -- =====================================================
+-- ESP32 LOAD MONITORING TABLES
+-- =====================================================
+
+-- ESP32 Load Data - Real-time measurements from ESP32
+CREATE TABLE esp32_load_data (
+    id SERIAL PRIMARY KEY,
+    load_number INTEGER NOT NULL,       -- 1 or 2 (Load-1: 100W, Load-2: 8W)
+    voltage DECIMAL(10,3),
+    current DECIMAL(10,4),
+    power DECIMAL(10,3),
+    relay_state BOOLEAN,                -- TRUE = ON, FALSE = OFF
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_esp32_load_timestamp ON esp32_load_data(load_number, timestamp DESC);
+
+-- ESP32 DHT11 Sensor Data - Temperature and Humidity
+CREATE TABLE esp32_dht11_data (
+    id SERIAL PRIMARY KEY,
+    temperature DECIMAL(5,2),
+    humidity DECIMAL(5,2),
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_esp32_dht11_timestamp ON esp32_dht11_data(timestamp DESC);
+
+-- ESP32 Relay Control - Relay states and thresholds
+CREATE TABLE esp32_relay_config (
+    id SERIAL PRIMARY KEY,
+    load_number INTEGER NOT NULL UNIQUE,
+    power_threshold DECIMAL(10,2),      -- Power threshold for auto control
+    relay_state BOOLEAN DEFAULT FALSE,  -- Current relay state
+    auto_mode BOOLEAN DEFAULT TRUE,     -- Auto control enabled
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Initialize with default values for both loads
+INSERT INTO esp32_relay_config (load_number, power_threshold, relay_state, auto_mode) 
+VALUES 
+    (1, 120.0, FALSE, TRUE),  -- Load 1: 100W bulb, threshold 120W
+    (2, 15.0, FALSE, TRUE)    -- Load 2: 8W bulb, threshold 15W
+ON CONFLICT (load_number) DO NOTHING;
+
+-- =====================================================
 -- VIEWS for common queries
 -- =====================================================
 
@@ -177,3 +221,27 @@ SELECT
 FROM loads l
 LEFT JOIN load_states ls ON l.id = ls.load_id
 LEFT JOIN latest_telemetry lt ON l.id = lt.load_id;
+
+-- Latest ESP32 data view
+CREATE OR REPLACE VIEW latest_esp32_data AS
+SELECT 
+    l1.load_number,
+    l1.voltage,
+    l1.current,
+    l1.power,
+    l1.relay_state,
+    l1.timestamp,
+    rc.power_threshold,
+    rc.auto_mode
+FROM (
+    SELECT DISTINCT ON (load_number)
+        load_number,
+        voltage,
+        current,
+        power,
+        relay_state,
+        timestamp
+    FROM esp32_load_data
+    ORDER BY load_number, timestamp DESC
+) l1
+LEFT JOIN esp32_relay_config rc ON l1.load_number = rc.load_number;

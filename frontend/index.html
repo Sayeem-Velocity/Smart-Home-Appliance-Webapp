@@ -8,36 +8,22 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        // Check authentication before loading page
+        (function() {
+            var authToken = localStorage.getItem('authToken');
+            var currentUser = localStorage.getItem('currentUser');
+            
+            if (!authToken || !currentUser) {
+                // Not logged in - redirect to login page
+                window.location.href = 'login.html';
+            }
+        })();
+    </script>
 </head>
 <body>
-    <!-- Login Screen -->
-    <div id="loginScreen" class="login-screen">
-        <div class="login-container">
-            <div class="login-header">
-                <i class="fas fa-bolt"></i>
-                <h1>Smart Load Dashboard</h1>
-                <p>Electrical Load Monitoring System</p>
-            </div>
-            <form id="loginForm" class="login-form">
-                <div class="input-group">
-                    <i class="fas fa-user"></i>
-                    <input type="text" id="username" placeholder="Username" required>
-                </div>
-                <div class="input-group">
-                    <i class="fas fa-lock"></i>
-                    <input type="password" id="password" placeholder="Password" required>
-                </div>
-                <button type="submit" class="login-btn">
-                    <i class="fas fa-sign-in-alt"></i> Sign In
-                </button>
-                <p class="login-hint">Demo: demo/demo123 or admin/admin123</p>
-            </form>
-            <div id="loginError" class="login-error"></div>
-        </div>
-    </div>
-
     <!-- Main Dashboard -->
-    <div id="dashboard" class="dashboard hidden">
+    <div id="dashboard" class="dashboard">
         <!-- Header -->
         <header class="header">
             <div class="header-left">
@@ -48,6 +34,10 @@
                 <div class="connection-status" id="connectionStatus">
                     <i class="fas fa-circle"></i>
                     <span>Connecting...</span>
+                </div>
+                <div class="mqtt-status" id="mqttStatus">
+                    <i class="fas fa-broadcast-tower"></i>
+                    <span>MQTT: Waiting</span>
                 </div>
                 <div class="user-info">
                     <i class="fas fa-user-circle"></i>
@@ -133,6 +123,34 @@
                 <h2><i class="fas fa-plug"></i> Electrical Loads</h2>
                 <div class="loads-grid" id="loadsGrid">
                     <!-- Load cards will be dynamically inserted here -->
+                </div>
+            </section>
+
+            <!-- DHT11 Sensor Section -->
+            <section class="dht11-section">
+                <h2><i class="fas fa-thermometer-half"></i> Environment Sensor (DHT11)</h2>
+                <div class="dht11-cards">
+                    <div class="summary-card">
+                        <i class="fas fa-thermometer-half"></i>
+                        <div>
+                            <h3>Temperature</h3>
+                            <p id="esp32Temperature">-- °C</p>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <i class="fas fa-tint"></i>
+                        <div>
+                            <h3>Humidity</h3>
+                            <p id="esp32Humidity">-- %</p>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <i class="fas fa-clock"></i>
+                        <div>
+                            <h3>Last Update</h3>
+                            <p id="esp32LastUpdate">Never</p>
+                        </div>
+                    </div>
                 </div>
             </section>
 

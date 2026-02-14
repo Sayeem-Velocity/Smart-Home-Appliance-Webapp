@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Load Monitor - Smart Home Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/esp32-monitor.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="logo">⚡ Smart Home Dashboard</div>
+            <div class="nav-menu">
+                <a href="index.html">Main Dashboard</a>
+                <a href="esp32-monitor.html" class="active">ESP32 Monitor</a>
+                <button id="logoutBtn" class="btn btn-secondary">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container main-content">
+        <!-- ESP32 Connection Status -->
+        <div class="status-banner">
+            <div class="status-item">
+                <span class="status-label">MQTT Broker:</span>
+                <span id="mqttStatus" class="status-value">Connecting...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">ESP32 Device:</span>
+                <span id="esp32Status" class="status-value">Waiting...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Last Update:</span>
+                <span id="lastUpdate" class="status-value">Never</span>
+            </div>
+        </div>
+
+        <!-- Load Control Cards -->
+        <div class="loads-grid">
+            <!-- Load 1: 100W Bulb -->
+            <div class="load-card" id="load1Card">
+                <div class="load-header">
+                    <h2>💡 Load 1 - 100W Bulb</h2>
+                    <div class="relay-status" id="relay1Status">
+                        <span class="relay-indicator off"></span>
+                        <span>Relay OFF</span>
+                    </div>
+                </div>
+                
+                <div class="load-metrics">
+                    <div class="metric">
+                        <span class="metric-label">Voltage</span>
+                        <span class="metric-value" id="load1Voltage">0.0 V</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Current</span>
+                        <span class="metric-value" id="load1Current">0.000 A</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Power</span>
+                        <span class="metric-value" id="load1Power">0.0 W</span>
+                    </div>
+                </div>
+
+                <div class="load-controls">
+                    <div class="control-group">
+                        <label>Manual Control:</label>
+                        <button class="btn btn-success" onclick="controlRelay(1, true)">Turn ON</button>
+                        <button class="btn btn-danger" onclick="controlRelay(1, false)">Turn OFF</button>
+                    </div>
+                    <div class="control-group">
+                        <label>Auto Mode:</label>
+                        <label class="switch">
+                            <input type="checkbox" id="auto1" checked onchange="toggleAutoMode(1)">
+                            <span class="slider"></span>
+                        </label>
+                        <span id="auto1Status">Enabled</span>
+                    </div>
+                    <div class="control-group">
+                        <label>Power Threshold:</label>
+                        <input type="number" id="threshold1" value="120" step="10" min="0">
+                        <span>W</span>
+                        <button class="btn btn-primary" onclick="updateThreshold(1)">Update</button>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="load1Chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Load 2: 8W Bulb -->
+            <div class="load-card" id="load2Card">
+                <div class="load-header">
+                    <h2>💡 Load 2 - 8W Bulb</h2>
+                    <div class="relay-status" id="relay2Status">
+                        <span class="relay-indicator off"></span>
+                        <span>Relay OFF</span>
+                    </div>
+                </div>
+                
+                <div class="load-metrics">
+                    <div class="metric">
+                        <span class="metric-label">Voltage</span>
+                        <span class="metric-value" id="load2Voltage">0.0 V</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Current</span>
+                        <span class="metric-value" id="load2Current">0.000 A</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Power</span>
+                        <span class="metric-value" id="load2Power">0.0 W</span>
+                    </div>
+                </div>
+
+                <div class="load-controls">
+                    <div class="control-group">
+                        <label>Manual Control:</label>
+                        <button class="btn btn-success" onclick="controlRelay(2, true)">Turn ON</button>
+                        <button class="btn btn-danger" onclick="controlRelay(2, false)">Turn OFF</button>
+                    </div>
+                    <div class="control-group">
+                        <label>Auto Mode:</label>
+                        <label class="switch">
+                            <input type="checkbox" id="auto2" checked onchange="toggleAutoMode(2)">
+                            <span class="slider"></span>
+                        </label>
+                        <span id="auto2Status">Enabled</span>
+                    </div>
+                    <div class="control-group">
+                        <label>Power Threshold:</label>
+                        <input type="number" id="threshold2" value="15" step="1" min="0">
+                        <span>W</span>
+                        <button class="btn btn-primary" onclick="updateThreshold(2)">Update</button>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="load2Chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- DHT11 Sensor Data -->
+        <div class="dht11-card">
+            <h2>🌡️ DHT11 Sensor - Temperature & Humidity</h2>
+            <div class="dht11-metrics">
+                <div class="metric large">
+                    <span class="metric-label">Temperature</span>
+                    <span class="metric-value" id="temperature">-- °C</span>
+                </div>
+                <div class="metric large">
+                    <span class="metric-label">Humidity</span>
+                    <span class="metric-value" id="humidity">-- %</span>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="dht11Chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="stats-card">
+            <h2>📊 24-Hour Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <h3>Load 1</h3>
+                    <p>Avg Power: <span id="load1AvgPower">--</span> W</p>
+                    <p>Max Power: <span id="load1MaxPower">--</span> W</p>
+                    <p>Readings: <span id="load1Readings">--</span></p>
+                </div>
+                <div class="stat-item">
+                    <h3>Load 2</h3>
+                    <p>Avg Power: <span id="load2AvgPower">--</span> W</p>
+                    <p>Max Power: <span id="load2MaxPower">--</span> W</p>
+                    <p>Readings: <span id="load2Readings">--</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/esp32-monitor.js"></script>
+</body>
+</html>

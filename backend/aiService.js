@@ -23,60 +23,145 @@ let monitoringInterval = null;
 let aiControlEnabled = false;
 
 // ============================================================================
-// DATABASE QUERIES - REAL-TIME DATA
+// DATABASE QUERIES - REAL-TIME DATA FROM ESP32
 // ============================================================================
 
 async function getSystemContext() {
     try {
-        // Get current loads with telemetry
-        const loadsQuery = `
-            SELECT 
-                l.id, l.name, l.type, l.device_type, l.max_power,
-                ls.is_on,
-                lt.voltage, lt.current, lt.power, lt.energy, lt.cost
-            FROM loads l
-            LEFT JOIN load_states ls ON l.id = ls.load_id
-            LEFT JOIN LATERAL (
-                SELECT * FROM telemetry WHERE load_id = l.id ORDER BY timestamp DESC LIMIT 1
-            ) lt ON true
-            ORDER BY l.id
+        // Get latest ESP32 load data for both loads
+        const load1Query = `
+            SELECT voltage, current, power, relay_state, timestamp
+            FROM esp32_load_data
+            WHERE load_number = 1
+            ORDER BY timestamp DESC
+            LIMIT 1
         `;
-        const loads = await pool.query(loadsQuery);
-
-        // Today's summary
-        const summaryQuery = `
+        const load2Query = `
+            SELECT voltage, current, power, relay_state, timestamp
+            FROM esp32_load_data
+            WHERE load_number = 2
+            ORDER BY timestamp DESC
+            LIMIT 1
+        `;
+        
+        // Get latest DHT11 data
+        const dht11Query = `
+            SELECT temperature, humidity, timestamp
+            FROM esp32_dht11_data
+            ORDER BY timestamp DESC
+            LIMIT 1
+        `;
+        
+        // Get today's energy summary from ESP32 data
+        const todaySummaryQuery = `
             SELECT 
-                COALESCE(SUM(energy), 0)::numeric(10,4) as total_energy,
-                COALESCE(SUM(cost), 0)::numeric(10,4) as total_cost,
-                COALESCE(AVG(power), 0)::numeric(10,2) as avg_power
-            FROM telemetry
+                load_number,
+                COUNT(*) as readings,
+                AVG(power)::numeric(10,2) as avg_power,
+                MAX(power)::numeric(10,2) as max_power,
+                MIN(voltage)::numeric(10,2) as min_voltage,
+                MAX(voltage)::numeric(10,2) as max_voltage,
+                SUM(power * 2 / 3600000)::numeric(10,6) as energy_kwh
+            FROM esp32_load_data
             WHERE DATE(timestamp) = CURRENT_DATE
+            GROUP BY load_number
         `;
-        const summary = await pool.query(summaryQuery);
-
-        // Recent alerts
-        const alertsQuery = `
-            SELECT message, alert_type, created_at 
-            FROM alerts 
-            WHERE is_acknowledged = false 
-            ORDER BY created_at DESC LIMIT 5
+        
+        // Get hourly power consumption pattern
+        const hourlyPatternQuery = `
+            SELECT 
+                EXTRACT(HOUR FROM timestamp) as hour,
+                load_number,
+                AVG(power)::numeric(10,2) as avg_power
+            FROM esp32_load_data
+            WHERE timestamp >= NOW() - INTERVAL '24 hours'
+            GROUP BY EXTRACT(HOUR FROM timestamp), load_number
+            ORDER BY hour
         `;
-        const alerts = await pool.query(alertsQuery);
-
-        const activeLoads = loads.rows.filter(l => l.is_on).length;
-        const totalPower = loads.rows.reduce((sum, l) => sum + parseFloat(l.power || 0), 0);
-
+        
+        // Get relay config with thresholds
+        const relayConfigQuery = `
+            SELECT load_number, power_threshold, relay_state, auto_mode
+            FROM esp32_relay_config
+            ORDER BY load_number
+        `;
+        
+        const [load1, load2, dht11, todaySummary, hourlyPattern, relayConfig] = await Promise.all([
+            pool.query(load1Query),
+            pool.query(load2Query),
+            pool.query(dht11Query),
+            pool.query(todaySummaryQuery),
+            pool.query(hourlyPatternQuery),
+            pool.query(relayConfigQuery)
+        ]);
+        
+        const load1Data = load1.rows[0] || { voltage: 0, current: 0, power: 0, relay_state: false };
+        const load2Data = load2.rows[0] || { voltage: 0, current: 0, power: 0, relay_state: false };
+        const envData = dht11.rows[0] || { temperature: 0, humidity: 0 };
+        
+        // Calculate costs (assuming $0.12 per kWh)
+        const COST_PER_KWH = 0.12;
+        const load1Summary = todaySummary.rows.find(r => r.load_number === 1) || { energy_kwh: 0, avg_power: 0, max_power: 0 };
+        const load2Summary = todaySummary.rows.find(r => r.load_number === 2) || { energy_kwh: 0, avg_power: 0, max_power: 0 };
+        
+        const totalEnergyKWh = parseFloat(load1Summary.energy_kwh || 0) + parseFloat(load2Summary.energy_kwh || 0);
+        const totalCost = totalEnergyKWh * COST_PER_KWH;
+        
+        // Build loads array for compatibility
+        const loads = [
+            {
+                id: 1,
+                name: 'AC Heater',
+                device_type: 'heater',
+                type: 'AC',
+                is_on: load1Data.relay_state,
+                voltage: parseFloat(load1Data.voltage) || 0,
+                current: parseFloat(load1Data.current) || 0,
+                power: parseFloat(load1Data.power) || 0,
+                energy_kwh: parseFloat(load1Summary.energy_kwh) || 0,
+                avg_power: parseFloat(load1Summary.avg_power) || 0,
+                max_power: parseFloat(load1Summary.max_power) || 0,
+                cost: (parseFloat(load1Summary.energy_kwh) || 0) * COST_PER_KWH,
+                threshold: relayConfig.rows.find(r => r.load_number === 1)?.power_threshold || 120
+            },
+            {
+                id: 2,
+                name: 'AC Bulb',
+                device_type: 'bulb',
+                type: 'AC',
+                is_on: load2Data.relay_state,
+                voltage: parseFloat(load2Data.voltage) || 0,
+                current: parseFloat(load2Data.current) || 0,
+                power: parseFloat(load2Data.power) || 0,
+                energy_kwh: parseFloat(load2Summary.energy_kwh) || 0,
+                avg_power: parseFloat(load2Summary.avg_power) || 0,
+                max_power: parseFloat(load2Summary.max_power) || 0,
+                cost: (parseFloat(load2Summary.energy_kwh) || 0) * COST_PER_KWH,
+                threshold: relayConfig.rows.find(r => r.load_number === 2)?.power_threshold || 15
+            }
+        ];
+        
+        const activeLoads = loads.filter(l => l.is_on).length;
+        const totalPower = loads.reduce((sum, l) => sum + l.power, 0);
+        
         return {
-            loads: loads.rows,
+            loads,
+            environment: {
+                temperature: parseFloat(envData.temperature) || 0,
+                humidity: parseFloat(envData.humidity) || 0,
+                timestamp: envData.timestamp
+            },
             summary: {
-                totalLoads: loads.rows.length,
+                totalLoads: 2,
                 activeLoads,
                 totalPowerW: totalPower.toFixed(1),
-                totalEnergyKWh: parseFloat(summary.rows[0]?.total_energy || 0).toFixed(4),
-                totalCost: parseFloat(summary.rows[0]?.total_cost || 0).toFixed(4),
-                avgPower: parseFloat(summary.rows[0]?.avg_power || 0).toFixed(1)
+                totalEnergyKWh: totalEnergyKWh.toFixed(6),
+                totalCost: totalCost.toFixed(4),
+                avgPower: ((parseFloat(load1Summary.avg_power) || 0) + (parseFloat(load2Summary.avg_power) || 0)).toFixed(1)
             },
-            alerts: alerts.rows,
+            hourlyPattern: hourlyPattern.rows,
+            relayConfig: relayConfig.rows,
+            alerts: [],
             timestamp: new Date().toISOString()
         };
     } catch (error) {
@@ -88,7 +173,28 @@ async function getSystemContext() {
 async function refreshContext() {
     const now = Date.now();
     if (!systemContext || (now - lastContextUpdate) > CONTEXT_UPDATE_INTERVAL) {
-        systemContext = await getSystemContext();
+        try {
+            systemContext = await getSystemContext();
+        } catch (e) {
+            console.error('System context update failed:', e);
+            systemContext = null;
+        }
+
+        // Fallback if context is null (DB failure)
+        if (!systemContext) {
+            console.log('⚠️ AI Service: Using minimal mock context due to data failure');
+            systemContext = {
+                loads: [
+                    { id: 1, name: 'AC Heater', power: 0, is_on: false, voltage: 0, current: 0, energy_kwh: 0, cost: 0, threshold: 0 }, 
+                    { id: 2, name: 'AC Bulb', power: 0, is_on: false, voltage: 0, current: 0, energy_kwh: 0, cost: 0, threshold: 0 }
+                ],
+                environment: { temperature: 25, humidity: 50 },
+                summary: { activeLoads: 0, totalLoads: 2, totalPowerW: "0", totalEnergyKWh: "0", totalCost: "0", avgPower: "0" },
+                hourlyPattern: [], 
+                alerts: [], 
+                timestamp: new Date().toISOString()
+            };
+        }
         lastContextUpdate = now;
     }
     return systemContext;
@@ -107,26 +213,19 @@ function initializeAI() {
 
     try {
         genAI = new GoogleGenerativeAI(apiKey);
+        
+        // Use available model from user's list: gemini-2.5-flash
         model = genAI.getGenerativeModel({
-            model: 'gemini-2.0-flash-exp', // Only model available for this key
+            model: 'gemini-2.5-flash', 
             generationConfig: {
                 temperature: 0.7,
                 topP: 0.9,
-                maxOutputTokens: 512
-            },
-            systemInstruction: `You are an AI assistant for a Smart Energy Monitoring Dashboard.
-Your role:
-- Help users understand their energy consumption
-- Provide energy-saving tips and recommendations
-- Answer questions about device status, power usage, and costs
-- Alert users to potential issues
-- Be concise, helpful, and use emojis for better readability
-
-Always base your answers on the real-time data provided. Use specific numbers.
-Format responses nicely with bullet points and emojis where appropriate.`
+                maxOutputTokens: 1024
+            }
         });
 
-        console.log('✅ AI Chatbot initialized (simple mode)');
+        console.log('✅ AI Chatbot initialized with Gemini 2.5 Flash');
+        console.log('   API Key:', apiKey.substring(0, 20) + '...');
         
         // Start background anomaly monitoring
         startBackgroundMonitoring();
@@ -270,22 +369,59 @@ function sleep(ms) {
 }
 
 // ============================================================================
+// HELPER: REMOVE EMOJIS FROM TEXT
+// ============================================================================
+
+function removeEmojis(text) {
+    // Remove common emojis and emoji patterns
+    return text
+        .replace(/[\u{1F600}-\u{1F64F}]/gu, '') // Emoticons
+        .replace(/[\u{1F300}-\u{1F5FF}]/gu, '') // Misc Symbols and Pictographs
+        .replace(/[\u{1F680}-\u{1F6FF}]/gu, '') // Transport and Map
+        .replace(/[\u{1F1E0}-\u{1F1FF}]/gu, '') // Flags
+        .replace(/[\u{2600}-\u{26FF}]/gu, '')   // Misc symbols
+        .replace(/[\u{2700}-\u{27BF}]/gu, '')   // Dingbats
+        .replace(/[\u{FE00}-\u{FE0F}]/gu, '')   // Variation Selectors
+        .replace(/[\u{1F900}-\u{1F9FF}]/gu, '') // Supplemental Symbols
+        .replace(/[\u{1FA00}-\u{1FA6F}]/gu, '') // Chess Symbols
+        .replace(/[\u{1FA70}-\u{1FAFF}]/gu, '') // Symbols Extended-A
+        .replace(/[\u{231A}-\u{231B}]/gu, '')   // Watch, Hourglass
+        .replace(/[\u{23E9}-\u{23F3}]/gu, '')   // Various symbols
+        .replace(/[\u{23F8}-\u{23FA}]/gu, '')   // Various symbols
+        .replace(/[\u{25AA}-\u{25AB}]/gu, '')   // Squares
+        .replace(/[\u{25B6}]/gu, '')            // Play button
+        .replace(/[\u{25C0}]/gu, '')            // Reverse button
+        .replace(/[\u{25FB}-\u{25FE}]/gu, '')   // Squares
+        .replace(/[\u{2934}-\u{2935}]/gu, '')   // Arrows
+        .replace(/[\u{2B05}-\u{2B07}]/gu, '')   // Arrows
+        .replace(/[\u{2B1B}-\u{2B1C}]/gu, '')   // Squares
+        .replace(/[\u{2B50}]/gu, '')            // Star
+        .replace(/[\u{2B55}]/gu, '')            // Circle
+        .replace(/[\u{3030}]/gu, '')            // Wavy Dash
+        .replace(/[\u{303D}]/gu, '')            // Part Alternation Mark
+        .replace(/[\u{3297}]/gu, '')            // Circled Ideograph
+        .replace(/[\u{3299}]/gu, '')            // Circled Ideograph Secret
+        .replace(/[⚡🔌💡🌡️📊💰❓✅⭕🟢⚪📈💵✨🔋⏱️🏠]/g, '') // Specific common ones
+        .trim();
+}
+
+// ============================================================================
 // MAIN CHAT FUNCTION
 // ============================================================================
 
 // Store chat history per user
 const userChatHistories = new Map();
 
-// Smart fallback for common queries
+// Smart fallback for common queries (professional, no emojis)
 function getSmartFallback(query, context) {
     const q = query.toLowerCase();
     
     // Status queries
     if (q.includes('status') || q.includes('how') && (q.includes('device') || q.includes('load'))) {
-        return `📊 **Current System Status:**
+        return `**Current System Status**
 
 **Devices:**
-${context.loads.map(l => `• ${l.name}: ${l.is_on ? '✅ ON' : '⭕ OFF'} - ${parseFloat(l.power || 0).toFixed(1)}W`).join('\n')}
+${context.loads.map(l => `• ${l.name}: ${l.is_on ? 'ON (Active)' : 'OFF (Inactive)'} - ${parseFloat(l.power || 0).toFixed(1)}W`).join('\n')}
 
 **Summary:**
 • Active: ${context.summary.activeLoads}/${context.summary.totalLoads} devices
@@ -296,7 +432,7 @@ ${context.loads.map(l => `• ${l.name}: ${l.is_on ? '✅ ON' : '⭕ OFF'} - ${p
     
     // Power/energy queries
     if (q.includes('power') || q.includes('consumption') || q.includes('using')) {
-        return `⚡ **Power Consumption:**
+        return `**Power Consumption**
 
 • **Total Power:** ${context.summary.totalPowerW}W
 • **Today's Energy:** ${context.summary.totalEnergyKWh} kWh
@@ -308,7 +444,7 @@ ${context.loads.map(l => `• ${l.name}: ${parseFloat(l.power || 0).toFixed(1)}W
     
     // Cost queries
     if (q.includes('cost') || q.includes('bill') || q.includes('money')) {
-        return `💰 **Cost Information:**
+        return `**Cost Information**
 
 • **Today's Cost:** $${context.summary.totalCost}
 • **Today's Energy:** ${context.summary.totalEnergyKWh} kWh
@@ -343,163 +479,234 @@ ${context.loads.map(l => `• ${l.name}: $${parseFloat(l.cost || 0).toFixed(4)}`
             tips.push('• Use natural light during daytime');
         }
         
-        return `💡 **Energy Saving Tips:**\n\n${tips.join('\n')}`;
+        return `**Energy Saving Tips**\n\n${tips.join('\n')}`;
     }
     
     // Alerts
     if (q.includes('alert') || q.includes('warning') || q.includes('problem')) {
         if (context.alerts.length === 0) {
-            return '✅ **No Active Alerts**\n\nYour system is running smoothly with no warnings or issues.';
+            return '**No Active Alerts**\n\nYour system is running smoothly with no warnings or issues.';
         }
-        return `⚠️ **Active Alerts (${context.alerts.length}):**\n\n${context.alerts.map(a => `• ${a.alert_type.toUpperCase()}: ${a.message}`).join('\n')}`;
+        return `**Active Alerts (${context.alerts.length})**\n\n${context.alerts.map(a => `• ${a.alert_type.toUpperCase()}: ${a.message}`).join('\n')}`;
     }
     
     return null;
 }
 
 async function chat(userQuery, username = 'guest') {
+    console.log(`🧠 AI Proc: "${userQuery}" for ${username}`);
     try {
-        // Get real-time context from database
+        // Step 1: Get real-time data from ESP32 database tables
         const context = await refreshContext();
         if (!context) {
-            return { success: false, error: 'Unable to fetch system data' };
+            return { success: false, error: 'Database connection error. Please try again.' };
         }
 
-        // Get or create user chat history
+        // Step 2: Check AI model availability
+        if (!model) {
+            // Provide fallback response using database data
+            return generateFallbackResponse(userQuery, context, username);
+        }
+
+        // Step 3: Get user chat history
         if (!userChatHistories.has(username)) {
             userChatHistories.set(username, []);
         }
         const chatHistory = userChatHistories.get(username);
 
-        // Check for common database queries (direct DB response - faster)
-        const q = userQuery.toLowerCase();
-        const isCommonQuery = 
-            q.includes('status') || 
-            q.includes('power') || 
-            q.includes('cost') || 
-            q.includes('alert') || 
-            q.includes('tip') ||
-            q.includes('device') ||
-            q.includes('energy');
+        // Step 4: Build context from recent chat
+        let chatContext = '';
+        if (chatHistory.length > 0) {
+            const recent = chatHistory.slice(-2); // Last 2 exchanges
+            chatContext = '\n\nRecent conversation:\n' + 
+                recent.map(h => `User: ${h.query}\nAgent: ${h.response.substring(0, 100)}...`).join('\n') + '\n';
+        }
 
-        // For common queries, get instant database response
-        if (isCommonQuery) {
-            const dbResponse = getSmartFallback(userQuery, context);
-            if (dbResponse) {
-                chatHistory.push({
-                    query: userQuery,
-                    response: dbResponse,
-                    timestamp: new Date().toISOString()
-                });
-                console.log(`📊 Database response for: ${userQuery.substring(0, 30)}...`);
-                return {
-                    success: true,
-                    response: dbResponse,
-                    timestamp: context.timestamp,
-                    dataSource: 'database'
-                };
+        // Step 5: Build hourly pattern info for predictions
+        let hourlyInfo = '';
+        if (context.hourlyPattern && context.hourlyPattern.length > 0) {
+            const peakHour = context.hourlyPattern.reduce((max, h) => 
+                parseFloat(h.avg_power) > parseFloat(max.avg_power) ? h : max, 
+                context.hourlyPattern[0]
+            );
+            hourlyInfo = `\n📊 USAGE PATTERN:\n• Peak usage hour: ${peakHour.hour}:00 (${peakHour.avg_power}W avg)\n`;
+        }
+
+        // Step 6: Create AI agent prompt
+        const agentPrompt = `You are a smart, helpful AI Energy Assistant. 
+CONTEXT AND REAL-TIME DATA:
+Time: ${context.timestamp}
+- Load 1 (AC Heater): ${context.loads[0].power.toFixed(1)}W [${context.loads[0].is_on ? 'ON' : 'OFF'}]
+- Load 2 (AC Bulb): ${context.loads[1].power.toFixed(1)}W [${context.loads[1].is_on ? 'ON' : 'OFF'}]
+- Environment: ${context.environment.temperature}°C, ${context.environment.humidity}% Humidity
+- Total Power: ${context.summary.totalPowerW}W | Total Energy Today: ${context.summary.totalEnergyKWh} kWh
+- Configured Thresholds: Heater=${context.loads[0].threshold}W, Bulb=${context.loads[1].threshold}W
+
+${chatContext}
+USER INPUT: "${userQuery}"
+
+INSTRUCTIONS:
+1. specific question, use the real-time data above to answer accurately.
+2. If the user asks for analysis, look at the power and energy values.
+3. Keep the tone professional but helpful and natural. 
+4. Do NOT use emojis. 
+5. Be concise.`;
+
+        console.log(`🧠 AI Processing with Gemini 1.5 Flash...`);
+
+        // Step 7: Call Gemini AI - Retry logic
+        let agentResponse;
+        try {
+            if (!model) initializeAI(); // Try to auto-recover model
+            
+            const result = await model.generateContent(agentPrompt);
+            agentResponse = result.response.text();
+            
+            // formatting
+            agentResponse = removeEmojis(agentResponse)
+                .replace(/\*\*/g, '<b>').replace(/\*\*/g, '</b>') // Convert bold to simple HTML if needed, or keep markdown
+                .trim();
+                
+        } catch (aiError) {
+            console.error('⚠️ Gemini API Failed:', aiError.message);
+            
+            // Auto-recovery for 404 Model Not Found errors
+            if (aiError.message.includes('404') || aiError.message.includes('not found')) {
+                console.log('🔄 Attempting fallback to gemini-2.0-flash model...');
+                try {
+                    const fallbackModel = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+                    const result = await fallbackModel.generateContent(agentPrompt);
+                    agentResponse = result.response.text();
+                    agentResponse = removeEmojis(agentResponse).replace(/\*\*/g, '<b>').replace(/\*\*/g, '</b>').trim();
+                    console.log('✅ Fallback to gemini-2.0-flash successful');
+                } catch (fallbackError) {
+                    console.error('❌ Fallback failed:', fallbackError.message);
+                    return generateFallbackResponse(userQuery, context, username);
+                }
+            } else {
+                return generateFallbackResponse(userQuery, context, username);
             }
         }
 
-        // For all other questions, use Gemini AI
-        if (!model) {
-            return { 
-                success: false, 
-                error: 'AI service not configured. Please add GEMINI_API_KEY in .env file.' 
-            };
-        }
-
-        // Build comprehensive prompt with ALL real-time database data
-        let historyContext = '';
-        if (chatHistory.length > 0) {
-            const recentHistory = chatHistory.slice(-3);
-            historyContext = '\n=== RECENT CONVERSATION ===\n' + 
-                recentHistory.map(h => `User: ${h.query}\nAI: ${h.response}`).join('\n\n') + 
-                '\n';
-        }
-
-        const prompt = `
-=== REAL-TIME SYSTEM DATA FROM DATABASE ===
-Time: ${context.timestamp}
-
-DEVICE STATUS (From database table: loads, load_states, telemetry):
-${context.loads.map(l => `
-Device: ${l.name} (ID: ${l.id})
-Type: ${l.device_type}
-Status: ${l.is_on ? 'ON' : 'OFF'}
-Current Power: ${parseFloat(l.power || 0).toFixed(1)}W
-Current Voltage: ${parseFloat(l.voltage || 0).toFixed(1)}V
-Current: ${parseFloat(l.current || 0).toFixed(2)}A
-Energy Consumed: ${parseFloat(l.energy || 0).toFixed(4)} kWh
-Cost: $${parseFloat(l.cost || 0).toFixed(4)}
-`).join('\n')}
-
-SYSTEM SUMMARY (Aggregated from database):
-• Total Devices: ${context.summary.totalLoads}
-• Active Devices: ${context.summary.activeLoads}
-• Total Power Consumption: ${context.summary.totalPowerW}W
-• Today's Total Energy: ${context.summary.totalEnergyKWh} kWh
-• Today's Total Cost: $${context.summary.totalCost}
-• Average Power: ${context.summary.avgPower}W
-
-${context.alerts.length > 0 ? `ACTIVE ALERTS (From database table: alerts):\n${context.alerts.map(a => `• ${a.alert_type.toUpperCase()}: ${a.message} (Created: ${new Date(a.created_at).toLocaleString()})`).join('\n')}` : 'No active alerts in the system.'}
-${historyContext}
-=== USER QUESTION ===
-${userQuery}
-
-Analyze the REAL-TIME DATABASE DATA above and provide a detailed, data-driven answer. 
-Use specific numbers from the data. Be helpful and conversational.
-Format your response with emojis and bullet points for readability.
-`;
-
-        // Call Gemini API with real-time data
-        const result = await model.generateContent(prompt);
-        const response = result.response.text();
-
-        // Save to chat history
+        // Step 8: Save to history
         chatHistory.push({
             query: userQuery,
-            response: response,
+            response: agentResponse,
             timestamp: new Date().toISOString()
         });
 
-        // Keep only last 20 messages
-        if (chatHistory.length > 20) {
+        // Keep last 10 messages only
+        if (chatHistory.length > 10) {
             chatHistory.shift();
         }
 
-        console.log(`✅ Gemini AI response generated`);
+        console.log(`✅ AI Agent responded successfully`);
 
         return {
             success: true,
-            response,
+            response: agentResponse || "I processed your request.",
             timestamp: context.timestamp,
-            dataSource: 'gemini-ai'
+            dataSource: 'gemini-ai-agent'
         };
 
     } catch (error) {
-        console.error('Chat error:', error.message);
+        console.error('❌ AI Agent error:', error.message);
         
-        // Return error - let user know to check API key
-        if (error.message.includes('429') || error.message.includes('quota')) {
-            return { 
-                success: false, 
-                error: 'API quota exceeded. Please check your Gemini API key or try again later.' 
-            };
+        // Always try fallback response for any error
+        console.error('Chat error details:', error);
+        
+        const context = await refreshContext();
+        if (context) {
+            console.log('Using fallback response...');
+            return generateFallbackResponse(userQuery, context, username);
         }
         
-        if (error.message.includes('API_KEY') || error.message.includes('401') || error.message.includes('403')) {
-            return { 
-                success: false, 
-                error: 'Invalid API key. Please update GEMINI_API_KEY in the .env file.' 
-            };
-        }
-        
+        // If even fallback fails, return friendly error
         return { 
-            success: false, 
-            error: 'Unable to process request: ' + error.message
+            success: true, 
+            response: `I'm having trouble connecting to the AI service right now. However, I can see your loads are working:\n\n**Status:**\n• AC Heater: ${currentData?.load1?.power || 0}W\n• AC Bulb: ${currentData?.load2?.power || 0}W\n\nPlease try asking your question again, or use the quick question buttons.`,
+            dataSource: 'error-fallback'
         };
     }
+}
+
+// Fallback response when AI is not available (professional, no emojis)
+function generateFallbackResponse(userQuery, context, username) {
+    const query = userQuery.toLowerCase();
+    let response = '';
+    
+    if (query.includes('power') || query.includes('consumption') || query.includes('usage')) {
+        response = `**Current Power Usage**\n\n` +
+            `**AC Heater:** ${context.loads[0].power.toFixed(1)}W (${context.loads[0].is_on ? 'ON' : 'OFF'})\n` +
+            `**AC Bulb:** ${context.loads[1].power.toFixed(1)}W (${context.loads[1].is_on ? 'ON' : 'OFF'})\n` +
+            `**Total:** ${context.summary.totalPowerW}W\n\n` +
+            `Today's energy: ${context.summary.totalEnergyKWh} kWh ($${context.summary.totalCost})`;
+    }
+    else if (query.includes('temperature') || query.includes('temp') || query.includes('humidity')) {
+        response = `**Environment Status**\n\n` +
+            `• Temperature: ${context.environment.temperature}°C\n` +
+            `• Humidity: ${context.environment.humidity}%\n\n` +
+            `${context.environment.temperature > 30 ? 'Warning: High temperature detected!' : 'Temperature is normal.'}`;
+    }
+    else if (query.includes('cost') || query.includes('money') || query.includes('bill') || query.includes('save')) {
+        const dailyCost = parseFloat(context.summary.totalCost);
+        const monthlyCost = dailyCost * 30;
+        response = `**Cost Analysis**\n\n` +
+            `**Today's Cost:** $${dailyCost.toFixed(4)}\n` +
+            `**Projected Monthly:** $${monthlyCost.toFixed(2)}\n\n` +
+            `**Cost-Saving Tips:**\n` +
+            `1. Turn off AC Heater when not needed (uses ${context.loads[0].avg_power}W avg)\n` +
+            `2. Use timer controls during peak hours\n` +
+            `3. Set lower thresholds for auto-off`;
+    }
+    else if (query.includes('heater') || query.includes('load 1')) {
+        response = `**AC Heater Status**\n\n` +
+            `• Status: ${context.loads[0].is_on ? 'ON (Active)' : 'OFF (Inactive)'}\n` +
+            `• Power: ${context.loads[0].power.toFixed(1)}W\n` +
+            `• Voltage: ${context.loads[0].voltage.toFixed(1)}V\n` +
+            `• Current: ${context.loads[0].current.toFixed(3)}A\n` +
+            `• Today's Energy: ${context.loads[0].energy_kwh.toFixed(6)} kWh\n` +
+            `• Today's Cost: $${context.loads[0].cost.toFixed(4)}`;
+    }
+    else if (query.includes('bulb') || query.includes('light') || query.includes('load 2')) {
+        response = `**AC Bulb Status**\n\n` +
+            `• Status: ${context.loads[1].is_on ? 'ON (Active)' : 'OFF (Inactive)'}\n` +
+            `• Power: ${context.loads[1].power.toFixed(1)}W\n` +
+            `• Voltage: ${context.loads[1].voltage.toFixed(1)}V\n` +
+            `• Current: ${context.loads[1].current.toFixed(3)}A\n` +
+            `• Today's Energy: ${context.loads[1].energy_kwh.toFixed(6)} kWh\n` +
+            `• Today's Cost: $${context.loads[1].cost.toFixed(4)}`;
+    }
+    else if (query.includes('pattern') || query.includes('analyze') || query.includes('predict')) {
+        response = `**Usage Analysis**\n\n` +
+            `**Today's Summary:**\n` +
+            `• Total Energy: ${context.summary.totalEnergyKWh} kWh\n` +
+            `• Average Power: ${context.summary.avgPower}W\n` +
+            `• Active Devices: ${context.summary.activeLoads}/${context.summary.totalLoads}\n\n` +
+            `**Prediction:**\n` +
+            `If usage continues, monthly consumption: ~${(parseFloat(context.summary.totalEnergyKWh) * 30).toFixed(3)} kWh\n` +
+            `Estimated monthly cost: $${(parseFloat(context.summary.totalCost) * 30).toFixed(2)}`;
+    }
+    else {
+        response = `**Hello!** I'm your Smart Home AI Assistant.\n\n` +
+            `**Current Status:**\n` +
+            `• AC Heater: ${context.loads[0].power.toFixed(1)}W (${context.loads[0].is_on ? 'ON' : 'OFF'})\n` +
+            `• AC Bulb: ${context.loads[1].power.toFixed(1)}W (${context.loads[1].is_on ? 'ON' : 'OFF'})\n` +
+            `• Temperature: ${context.environment.temperature}°C\n` +
+            `• Total Power: ${context.summary.totalPowerW}W\n\n` +
+            `**Ask me about:**\n` +
+            `• Power consumption & costs\n` +
+            `• Temperature & humidity\n` +
+            `• Energy-saving tips\n` +
+            `• Usage predictions`;
+    }
+    
+    return {
+        success: true,
+        response: response,
+        timestamp: context.timestamp,
+        dataSource: 'rule-based-fallback'
+    };
 }
 
 // Get chat history for a user
@@ -533,7 +740,7 @@ async function getRecommendations() {
         if (load.device_type === 'heater' && load.is_on && power > 800) {
             recommendations.push({
                 device: load.name,
-                tip: '🔥 Heater using high power. Consider lowering temperature.',
+                tip: 'Heater using high power. Consider lowering temperature.',
                 savings: '~15% energy savings'
             });
         }
@@ -543,7 +750,7 @@ async function getRecommendations() {
             if (hour >= 9 && hour < 17) {
                 recommendations.push({
                     device: load.name,
-                    tip: '💡 Light is on during daytime. Use natural light if possible.',
+                    tip: 'Light is on during daytime. Use natural light if possible.',
                     savings: '~5% energy savings'
                 });
             }
@@ -553,7 +760,7 @@ async function getRecommendations() {
     if (totalPower > 1500) {
         recommendations.push({
             device: 'System',
-            tip: '⚡ High total power consumption. Turn off unused devices.',
+            tip: 'High total power consumption. Turn off unused devices.',
             savings: '~20% energy savings'
         });
     }
@@ -561,7 +768,7 @@ async function getRecommendations() {
     if (recommendations.length === 0) {
         recommendations.push({
             device: 'System',
-            tip: '✅ Energy usage looks good! Keep it up.',
+            tip: 'Energy usage looks good! Keep it up.',
             savings: 'Optimal'
         });
     }
@@ -595,14 +802,14 @@ async function getControlRecommendation(loadId, action) {
     
     // Check for high power usage
     if (action === 'on' && parseFloat(context.summary.totalPowerW) > 1500) {
-        warnings.push('⚡ Total power usage is already high');
+        warnings.push('Total power usage is already high');
     }
 
     // Check heater safety
     if (load.device_type === 'heater' && action === 'on') {
         const hour = new Date().getHours();
         if (hour >= 22 || hour < 6) {
-            warnings.push('🌙 Night mode - consider using lower settings');
+            warnings.push('Night mode - consider using lower settings');
         }
     }
 
@@ -676,12 +883,182 @@ function getAIControlStatus() {
 }
 
 async function triggerAIDecision() {
+    console.log('🤖 AI Decision: Starting autonomous control analysis...');
+    
+    // Step 1: Get real-time database context
     const context = await refreshContext();
     if (!context) {
-        return { success: false, error: 'Unable to fetch data' };
+        return { success: false, error: 'Unable to fetch database context' };
     }
 
-    // Simple rule-based decisions (no AI API call)
+    // Step 2: Check if AI model is available
+    if (!model) {
+        console.log('⚠️ Gemini AI not initialized, using fallback rules');
+        return await fallbackAIDecision(context);
+    }
+
+    try {
+        // Step 3: Build comprehensive prompt for Gemini AI
+        const currentTime = new Date();
+        const hour = currentTime.getHours();
+        const timeOfDay = hour >= 6 && hour < 12 ? 'morning' : 
+                         hour >= 12 && hour < 17 ? 'afternoon' : 
+                         hour >= 17 && hour < 21 ? 'evening' : 'night';
+        
+        const deviceDetails = context.loads.map(load => {
+            return `
+Device ${load.id}: ${load.device_name} (${load.device_type})
+  Status: ${load.is_on ? 'ON' : 'OFF'}
+  Power: ${parseFloat(load.power || 0).toFixed(1)}W
+  Voltage: ${parseFloat(load.voltage || 0).toFixed(1)}V
+  Current: ${parseFloat(load.current || 0).toFixed(2)}A
+  Energy Today: ${parseFloat(load.energy || 0).toFixed(4)} kWh
+  Cost Today: $${parseFloat(load.cost || 0).toFixed(4)}
+  Auto Mode: ${load.auto_mode ? 'Enabled' : 'Disabled'}`;
+        }).join('\n');
+
+        const alertInfo = context.alerts.length > 0 
+            ? `\n⚠️ ACTIVE ALERTS (${context.alerts.length}):\n` + context.alerts.map(a => 
+                `  - ${a.load_name}: ${a.message} (${a.alert_type})`
+              ).join('\n')
+            : '';
+
+        const aiPrompt = `You are an intelligent energy management AI agent. Analyze the current state of all devices and decide which actions to take for optimal energy efficiency, safety, and cost savings.
+
+📊 CURRENT SYSTEM STATE:
+Time: ${currentTime.toLocaleString()} (${timeOfDay})
+Active Devices: ${context.summary.active_count} / ${context.summary.total_count}
+Total Power: ${context.summary.total_power}W
+Total Energy: ${context.summary.total_energy} kWh
+Total Cost: $${context.summary.total_cost}
+${alertInfo}
+
+🔌 DEVICE STATUS:
+${deviceDetails}
+
+🎯 YOUR TASK:
+Analyze each device and decide whether to:
+1. Turn ON a device (if it should be running)
+2. Turn OFF a device (if it's wasting energy, unsafe, or unnecessary)
+3. Keep current state (if optimal)
+
+Consider:
+- Time of day (${timeOfDay}) - e.g., turn off lights during daytime
+- Energy efficiency - reduce total power consumption
+- Safety - turn off devices with abnormal readings
+- Cost optimization - minimize electricity costs
+- Alerts - address any critical issues
+
+🔧 RESPOND WITH VALID JSON ONLY:
+{
+  "summary": "Brief explanation of decisions",
+  "actions": [
+    {
+      "loadId": 1,
+      "action": "on" or "off" or "keep",
+      "reason": "Why this decision was made"
+    }
+  ]
+}
+
+IMPORTANT: Only include devices that need action (on/off). Skip devices that should "keep" their current state.`;
+
+        // Step 4: Call Gemini AI for autonomous decision
+        console.log('📡 Calling Gemini AI for autonomous control decision...');
+        const result = await model.generateContent(aiPrompt);
+        const responseText = result.response.text();
+        
+        // Step 5: Parse AI response
+        let aiDecision;
+        try {
+            // Extract JSON from markdown code blocks if present
+            const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) || 
+                            responseText.match(/```\s*([\s\S]*?)\s*```/) ||
+                            [null, responseText];
+            const jsonText = jsonMatch[1] || responseText;
+            aiDecision = JSON.parse(jsonText.trim());
+        } catch (parseError) {
+            console.error('❌ Failed to parse AI response:', parseError.message);
+            console.log('Raw response:', responseText);
+            return { 
+                success: false, 
+                error: 'AI response was not in valid JSON format',
+                rawResponse: responseText 
+            };
+        }
+
+        // Step 6: Validate and execute actions
+        const executedActions = [];
+        if (aiDecision.actions && Array.isArray(aiDecision.actions)) {
+            for (const action of aiDecision.actions) {
+                if (action.action === 'keep') continue; // Skip "keep" actions
+                
+                try {
+                    const turnOn = action.action === 'on';
+                    await dataIngestion.updateLoadState(action.loadId, turnOn, true);
+                    
+                    executedActions.push({
+                        loadId: action.loadId,
+                        action: action.action,
+                        reason: action.reason,
+                        success: true
+                    });
+                    
+                    console.log(`✅ AI Action: Load ${action.loadId} → ${action.action.toUpperCase()} - ${action.reason}`);
+                    
+                    // Emit real-time update via Socket.IO
+                    if (ioRef) {
+                        ioRef.emit('ai-control-action', {
+                            loadId: action.loadId,
+                            action: action.action,
+                            reason: action.reason,
+                            timestamp: new Date().toISOString()
+                        });
+                    }
+                } catch (execError) {
+                    console.error(`❌ Failed to execute action for Load ${action.loadId}:`, execError.message);
+                    executedActions.push({
+                        loadId: action.loadId,
+                        action: action.action,
+                        reason: action.reason,
+                        success: false,
+                        error: execError.message
+                    });
+                }
+            }
+        }
+
+        // Step 7: Return results
+        return {
+            success: true,
+            decision: {
+                summary: aiDecision.summary || `AI made ${executedActions.length} decision(s)`,
+                actions: executedActions,
+                totalActions: executedActions.length,
+                timestamp: new Date().toISOString()
+            },
+            dataSource: 'gemini-ai-agent'
+        };
+
+    } catch (error) {
+        console.error('❌ AI Decision Error:', error.message);
+        
+        // Fallback to rule-based on API errors
+        if (error.message?.includes('quota') || error.message?.includes('429')) {
+            console.log('⚠️ AI quota exceeded, using fallback rules');
+            return await fallbackAIDecision(context);
+        }
+        
+        return { 
+            success: false, 
+            error: `AI Error: ${error.message}` 
+        };
+    }
+}
+
+// Fallback rule-based decision (when AI is unavailable)
+async function fallbackAIDecision(context) {
+    console.log('🔧 Using fallback rule-based decisions');
     const actions = [];
     const hour = new Date().getHours();
 
@@ -693,37 +1070,60 @@ async function triggerAIDecision() {
             actions.push({
                 loadId: load.id,
                 action: 'off',
-                reason: 'Power exceeds safe threshold'
+                reason: 'Power exceeds safe threshold (900W)'
             });
         }
         
-        // Turn off bulb during day
+        // Turn off bulb during daytime (9 AM - 5 PM)
         if (load.device_type === 'bulb' && load.is_on && hour >= 9 && hour < 17) {
             actions.push({
                 loadId: load.id,
                 action: 'off',
-                reason: 'Daytime - use natural light'
+                reason: 'Daytime detected - use natural light'
+            });
+        }
+        
+        // Turn on bulb in evening if off (6 PM - 11 PM)
+        if (load.device_type === 'bulb' && !load.is_on && hour >= 18 && hour < 23) {
+            actions.push({
+                loadId: load.id,
+                action: 'on',
+                reason: 'Evening time - lighting recommended'
             });
         }
     });
 
     // Execute actions
+    const executedActions = [];
     for (const action of actions) {
         try {
             await dataIngestion.updateLoadState(action.loadId, action.action === 'on', true);
+            executedActions.push({ ...action, success: true });
+            
+            if (ioRef) {
+                ioRef.emit('ai-control-action', {
+                    loadId: action.loadId,
+                    action: action.action,
+                    reason: action.reason,
+                    timestamp: new Date().toISOString()
+                });
+            }
         } catch (e) {
             console.error('Action failed:', e.message);
+            executedActions.push({ ...action, success: false, error: e.message });
         }
     }
 
     return {
         success: true,
         decision: {
-            summary: actions.length > 0 
-                ? `Made ${actions.length} optimization(s)` 
+            summary: executedActions.length > 0 
+                ? `Applied ${executedActions.length} rule-based optimization(s)` 
                 : 'System is optimized - no changes needed',
-            actions
-        }
+            actions: executedActions,
+            totalActions: executedActions.length
+        },
+        dataSource: 'rule-based-fallback'
     };
 }
 

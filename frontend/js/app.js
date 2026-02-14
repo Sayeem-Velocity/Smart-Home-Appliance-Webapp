@@ -3,6 +3,8 @@
  * Handles UI interactions, WebSocket, and data display
  */
 
+console.log('🚀 Smart Load Dashboard JS loaded');
+
 // =====================================================
 // Configuration & State
 // =====================================================
@@ -11,12 +13,23 @@ const API_URL = window.location.origin;
 const WS_URL = window.location.origin;
 
 let socket = null;
-let authToken = null;
+let authToken = localStorage.getItem('authToken') || null;
 let currentUser = null;
+
+// Load current user from localStorage
+try {
+    var storedUser = localStorage.getItem('currentUser');
+    if (storedUser) {
+        currentUser = JSON.parse(storedUser);
+    }
+} catch (e) {
+    console.error('Error loading user:', e);
+}
+
 let charts = {};
 let selectedLoadId = 1;
 let telemetryHistory = { 1: [], 2: [], 3: [] };
-let justLoggedIn = false; // Flag to prevent false "session expired" messages
+let justLoggedIn = false;
 
 // Device icons mapping
 const deviceIcons = {
@@ -29,74 +42,7 @@ const deviceIcons = {
 // Authentication
 // =====================================================
 
-function showLogin() {
-    document.getElementById('loginScreen').classList.remove('hidden');
-    document.getElementById('dashboard').classList.add('hidden');
-}
-
-function showDashboard() {
-    document.getElementById('loginScreen').classList.add('hidden');
-    document.getElementById('dashboard').classList.remove('hidden');
-}
-
-async function login(username, password) {
-    try {
-        // Clear any existing tokens first
-        authToken = null;
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('currentUser');
-        
-        const response = await fetch(`${API_URL}/api/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-            // Set flag FIRST to prevent false session expired messages
-            justLoggedIn = true;
-            
-            // Then set token and user
-            authToken = data.token;
-            currentUser = data.user;
-            localStorage.setItem('authToken', authToken);
-            localStorage.setItem('currentUser', JSON.stringify(currentUser));
-            
-            document.getElementById('userName').textContent = currentUser.name;
-            document.getElementById('userRole').textContent = currentUser.role;
-            document.getElementById('loginError').textContent = '';
-            
-            // Hide any alert banners from previous session
-            document.getElementById('alertBanner').classList.add('hidden');
-            
-            // Show dashboard and initialize
-            showDashboard();
-            initializeWebSocket();
-            
-            // Small delay to ensure token is propagated
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
-            await loadInitialData();
-            initializeCharts();
-            await loadAIControlStatus();
-            
-            // Clear flag after everything is loaded (5 seconds to be safe)
-            setTimeout(() => { justLoggedIn = false; }, 5000);
-        } else {
-            document.getElementById('loginError').textContent = data.message || 'Login failed';
-        }
-    } catch (error) {
-        document.getElementById('loginError').textContent = 'Connection error. Is the server running?';
-        console.error('Login error:', error);
-    }
-}
-
 function logout() {
-    // Clear flag
-    justLoggedIn = false;
-    
     localStorage.removeItem('authToken');
     localStorage.removeItem('currentUser');
     authToken = null;
@@ -106,50 +52,7 @@ function logout() {
         socket.disconnect();
     }
     
-    showLogin();
-    document.getElementById('loginError').textContent = '';
-}
-
-async function checkAuth() {
-    const token = localStorage.getItem('authToken');
-    const user = localStorage.getItem('currentUser');
-    
-    if (token && user) {
-        // Validate token with server before proceeding
-        try {
-            const response = await fetch(`${API_URL}/api/auth/validate`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (response.ok) {
-                authToken = token;
-                currentUser = JSON.parse(user);
-                
-                document.getElementById('userName').textContent = currentUser.name;
-                document.getElementById('userRole').textContent = currentUser.role;
-                
-                showDashboard();
-                initializeWebSocket();
-                loadInitialData();
-                initializeCharts();
-                loadAIControlStatus();
-            } else {
-                // Token invalid - clear and show login (silently, no notification)
-                console.log('Session expired - please login again');
-                localStorage.removeItem('authToken');
-                localStorage.removeItem('currentUser');
-                showLogin();
-            }
-        } catch (error) {
-            // Server not reachable - clear token and show login (silently)
-            console.log('Cannot connect to server');
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('currentUser');
-            showLogin();
-        }
-    } else {
-        showLogin();
-    }
+    window.location.href = 'login.html';
 }
 
 // =====================================================
@@ -163,17 +66,39 @@ function initializeWebSocket() {
         console.log('WebSocket connected');
         socket.emit('authenticate', authToken);
         updateConnectionStatus(true);
+        // Setup ESP32 listeners after socket connected
+        setupESP32SocketListeners();
     });
 
     socket.on('disconnect', () => {
         console.log('WebSocket disconnected');
         updateConnectionStatus(false);
+        updateMQTTStatus(false);
     });
 
     socket.on('authenticated', (data) => {
         if (data.success) {
             console.log('WebSocket authenticated');
         }
+    });
+
+    // MQTT Status Updates
+    socket.on('mqtt:status', (data) => {
+        console.log('📡 MQTT Status:', data);
+        updateMQTTStatus(data.connected, data.clientId);
+    });
+
+    // MQTT Client Connected
+    socket.on('mqtt:client_connected', (data) => {
+        console.log('📡 MQTT Client Connected:', data.clientId);
+        updateMQTTStatus(true, data.clientId);
+        showNotification(`ESP32 connected: ${data.clientId}`, 'success');
+    });
+
+    // MQTT Client Disconnected
+    socket.on('mqtt:client_disconnected', (data) => {
+        console.log('📡 MQTT Client Disconnected:', data.clientId);
+        updateMQTTStatus(false);
     });
 
     // Real-time telemetry updates
@@ -393,58 +318,115 @@ function updateConnectionStatus(connected) {
     }
 }
 
+function updateMQTTStatus(connected, clientId = null) {
+    const status = document.getElementById('mqttStatus');
+    if (!status) return;
+    
+    if (connected) {
+        status.classList.add('connected');
+        status.classList.remove('disconnected');
+        status.querySelector('span').textContent = clientId ? `MQTT: ${clientId}` : 'MQTT: Connected';
+    } else {
+        status.classList.remove('connected');
+        status.classList.add('disconnected');
+        status.querySelector('span').textContent = 'MQTT: Waiting';
+    }
+}
+
 // =====================================================
 // API Calls
 // =====================================================
 
 async function apiCall(endpoint, options = {}) {
-    const response = await fetch(`${API_URL}${endpoint}`, {
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`,
-            ...options.headers
+    try {
+        const response = await fetch(`${API_URL}${endpoint}`, {
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken || 'demo-token'}`,
+                ...options.headers
+            }
+        });
+        
+        const data = await response.json();
+        
+        // Handle errors gracefully
+        if (response.status === 401) {
+            console.warn('Auth error - using demo mode');
+            return data;
         }
-    });
-    
-    const data = await response.json();
-    
-    // Handle authentication errors - re-login required
-    if (response.status === 401) {
-        console.error('Authentication error:', data.error);
-        // Only show notification if we didn't just log in (to avoid false positives)
-        if (!justLoggedIn) {
-            showNotification('Session expired. Please login again.', 'error');
-            logout();
-        }
-        return { error: data.error, authError: true };
+        
+        return data;
+    } catch (error) {
+        console.error('API call error:', error);
+        return { error: error.message };
     }
-    
-    return data;
 }
 
 async function loadInitialData() {
     try {
         console.log('Loading initial data...');
         
-        // Load loads
-        const loads = await apiCall('/api/loads');
-        if (loads.error && !loads.authError) {
-            console.error('Error loading loads:', loads.error);
-            return;
-        }
-        if (loads && !loads.error) {
-            renderLoadCards(loads);
+        // Always render 2 load cards for ESP32 (even with no data yet)
+        const defaultLoads = [
+            {
+                id: 1,
+                name: '100W AC Bulb',
+                device_name: '100W AC Bulb',
+                type: 'AC',
+                device_type: 'bulb',
+                is_on: false,
+                auto_mode: false,
+                voltage: 0,
+                current: 0,
+                current_power: 0,
+                rated_power: 100,
+                energy_kwh: 0,
+                cost_today: 0,
+                state: 'OFF'
+            },
+            {
+                id: 2,
+                name: '8W AC Bulb',
+                device_name: '8W AC Bulb',
+                type: 'AC',
+                device_type: 'bulb',
+                is_on: false,
+                auto_mode: false,
+                voltage: 0,
+                current: 0,
+                current_power: 0,
+                rated_power: 8,
+                energy_kwh: 0,
+                cost_today: 0,
+                state: 'OFF'
+            }
+        ];
+        
+        // Render load cards immediately
+        console.log('✅ Rendering 2 load cards');
+        renderLoadCards(defaultLoads);
+
+        // Try to load ESP32 status for DHT11
+        try {
+            const esp32Status = await apiCall('/api/esp32/status');
+            if (esp32Status.success && esp32Status.data) {
+                if (esp32Status.data.dht11) {
+                    updateESP32DHT11Display(esp32Status.data.dht11);
+                }
+            }
+        } catch (err) {
+            console.log('ESP32 status not available yet');
         }
 
         // Load alerts
-        const alerts = await apiCall('/api/alerts?limit=20');
-        if (alerts.error && !alerts.authError) {
-            console.error('Error loading alerts:', alerts.error);
-            return;
-        }
-        if (alerts && !alerts.error) {
-            renderAlerts(alerts);
+        try {
+            const alerts = await apiCall('/api/alerts?limit=20');
+            if (alerts && !alerts.error) {
+                renderAlerts(alerts);
+            }
+        } catch (err) {
+            console.log('Alerts not available yet');
         }
         
         // Load chat history
@@ -553,19 +535,19 @@ function createLoadCard(load) {
         <div class="gauges-grid">
             <div class="gauge">
                 <div class="gauge-circle" id="voltage-gauge-${load.id}">
-                    <span class="gauge-value" id="voltage-${load.id}">0 V</span>
+                    <span class="gauge-value" id="voltage-${load.id}">${(load.voltage || 0).toFixed(1)} V</span>
                 </div>
                 <div class="gauge-label">Voltage</div>
             </div>
             <div class="gauge">
                 <div class="gauge-circle" id="current-gauge-${load.id}">
-                    <span class="gauge-value" id="current-${load.id}">0 A</span>
+                    <span class="gauge-value" id="current-${load.id}">${(load.current || 0).toFixed(3)} A</span>
                 </div>
                 <div class="gauge-label">Current</div>
             </div>
             <div class="gauge">
                 <div class="gauge-circle" id="power-gauge-${load.id}">
-                    <span class="gauge-value" id="power-${load.id}">0 W</span>
+                    <span class="gauge-value" id="power-${load.id}">${(load.current_power || 0).toFixed(1)} W</span>
                 </div>
                 <div class="gauge-label">Power</div>
             </div>
@@ -573,11 +555,11 @@ function createLoadCard(load) {
         
         <div class="metrics-row">
             <div class="metric">
-                <div class="metric-value" id="energy-${load.id}">0.000</div>
+                <div class="metric-value" id="energy-${load.id}">${(load.energy_kwh || 0).toFixed(4)}</div>
                 <div class="metric-label">Energy (kWh)</div>
             </div>
             <div class="metric">
-                <div class="metric-value" id="cost-${load.id}">$0.0000</div>
+                <div class="metric-value cost" id="cost-${load.id}">$${(load.cost_today || 0).toFixed(4)}</div>
                 <div class="metric-label">Cost</div>
             </div>
         </div>
@@ -588,6 +570,27 @@ function createLoadCard(load) {
                 <i class="fas fa-power-off"></i>
                 ${load.is_on ? 'Turn Off' : 'Turn On'}
             </button>
+            <button class="control-btn auto ${load.auto_mode ? 'active' : ''}" 
+                    onclick="toggleAutoMode(${load.id}, ${!load.auto_mode})">
+                <i class="fas fa-robot"></i>
+                Auto
+            </button>
+        </div>
+    `;
+    
+    // Set initial gauge values after card is created
+    setTimeout(() => {
+        const maxVoltage = 250;
+        const maxCurrent = load.id === 1 ? 2 : 0.5;
+        const maxPower = load.id === 1 ? 120 : 15;
+        
+        updateGauge(load.id, 'voltage', load.voltage || 0, maxVoltage);
+        updateGauge(load.id, 'current', load.current || 0, maxCurrent);
+        updateGauge(load.id, 'power', load.current_power || 0, maxPower);
+    }, 50);
+
+    return card;
+}
             <button class="control-btn auto ${load.auto_mode ? 'active' : ''}" 
                     onclick="toggleAutoMode(${load.id}, ${!load.auto_mode})">
                 <i class="fas fa-robot"></i>
@@ -674,22 +677,38 @@ function updateDashboard(data) {
 
 function updateGauge(loadId, metric, value, max) {
     const gauge = document.getElementById(`${metric}-gauge-${loadId}`);
-    if (!gauge) return;
+    if (!gauge) {
+        console.warn(`Gauge not found: ${metric}-gauge-${loadId}`);
+        return;
+    }
 
     const percentage = Math.min((value / max) * 100, 100);
     const degrees = (percentage / 100) * 360;
     
-    gauge.style.background = `conic-gradient(var(--primary) ${degrees}deg, var(--darker) ${degrees}deg)`;
+    // Update gauge background with smooth animation
+    gauge.style.background = `conic-gradient(
+        #3b82f6 ${degrees}deg, 
+        #0f172a ${degrees}deg
+    )`;
     
-    // Add warning/danger classes
+    // Add warning/danger classes based on percentage
+    gauge.classList.remove('warning', 'danger');
     if (percentage > 90) {
         gauge.classList.add('danger');
-        gauge.classList.remove('warning');
     } else if (percentage > 75) {
         gauge.classList.add('warning');
-        gauge.classList.remove('danger');
-    } else {
-        gauge.classList.remove('warning', 'danger');
+    }
+    
+    // Update the value text
+    const valueEl = document.getElementById(`${metric}-${loadId}`);
+    if (valueEl) {
+        if (metric === 'voltage') {
+            valueEl.textContent = `${value.toFixed(1)} V`;
+        } else if (metric === 'current') {
+            valueEl.textContent = `${value.toFixed(3)} A`;
+        } else if (metric === 'power') {
+            valueEl.textContent = `${value.toFixed(1)} W`;
+        }
     }
 }
 
@@ -1026,16 +1045,16 @@ function showNotification(message, type = 'info') {
 // Event Listeners
 // =====================================================
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Login form
-    document.getElementById('loginForm').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        login(username, password);
-    });
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Dashboard initializing...');
+    
+    // Update user info in header
+    if (currentUser) {
+        document.getElementById('userName').textContent = currentUser.name;
+        document.getElementById('userRole').textContent = currentUser.role;
+    }
 
-    // Logout
+    // Logout button
     document.getElementById('logoutBtn').addEventListener('click', logout);
 
     // Alert banner dismiss
@@ -1066,11 +1085,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('aiControlToggle').addEventListener('click', toggleAIControl);
     document.getElementById('aiTriggerBtn').addEventListener('click', triggerAIDecision);
 
-    // Check auth on load
-    checkAuth();
-    
-    // Load AI control status
-    loadAIControlStatus();
+    // Initialize dashboard
+    initializeWebSocket();
+    loadInitialData().catch(function(err) { console.error('Error loading data:', err); });
+    initializeCharts();
+    loadAIControlStatus().catch(function(err) { console.error('Error loading AI status:', err); });
 });
 
 // =====================================================
@@ -1189,5 +1208,211 @@ async function loadAIControlStatus() {
         }
     } catch (error) {
         console.error('Error loading AI control status:', error);
+    }
+}
+
+// =====================================================
+// ESP32 Functions
+// =====================================================
+
+// ESP32 data state
+let esp32Data = {
+    load1: { voltage: 0, current: 0, power: 0, relay_state: false },
+    load2: { voltage: 0, current: 0, power: 0, relay_state: false },
+    dht11: { temperature: 0, humidity: 0 }
+};
+
+function setupESP32SocketListeners() {
+    if (!socket) return;
+    
+    console.log('📡 Setting up ESP32 socket listeners...');
+    
+    // ESP32 Load updates
+    socket.on('esp32:load_update', function(data) {
+        console.log('📊 ESP32 Load Update:', data);
+        
+        // Update the electrical load card
+        const loadId = data.load_number;
+        
+        // Determine max values based on load
+        const maxVoltage = 250;
+        const maxCurrent = loadId === 1 ? 2.0 : 0.5;
+        const maxPower = loadId === 1 ? 120 : 15;
+        
+        // Update gauges with actual values
+        updateGauge(loadId, 'voltage', data.voltage, maxVoltage);
+        updateGauge(loadId, 'current', data.current, maxCurrent);
+        updateGauge(loadId, 'power', data.power, maxPower);
+        
+        // Update energy and cost if available
+        const energyEl = document.getElementById(`energy-${loadId}`);
+        const costEl = document.getElementById(`cost-${loadId}`);
+        if (energyEl) energyEl.textContent = (data.energy || 0).toFixed(4);
+        if (costEl) costEl.textContent = `$${(data.cost || 0).toFixed(4)}`;
+        
+        // Update relay status in card
+        const card = document.getElementById(`load-${loadId}`);
+        if (card) {
+            card.className = `load-card ${data.relay_state ? '' : 'off'}`;
+            
+            const statusBadge = card.querySelector('.status-badge');
+            if (statusBadge) {
+                statusBadge.className = `status-badge ${data.relay_state ? 'on' : 'off'}`;
+                statusBadge.textContent = data.relay_state ? 'ON' : 'OFF';
+            }
+            
+            const powerBtn = card.querySelector('.control-btn:first-child');
+            if (powerBtn) {
+                powerBtn.className = `control-btn ${data.relay_state ? 'power-off' : 'power-on'}`;
+                powerBtn.innerHTML = `<i class="fas fa-power-off"></i> ${data.relay_state ? 'Turn Off' : 'Turn On'}`;
+            }
+        }
+        
+        // Update summary cards
+        updateSummaryCards();
+        updateESP32LastUpdate();
+    });
+    
+    // ESP32 DHT11 data
+    socket.on('esp32:dht11_update', function(data) {
+        console.log('🌡️ ESP32 DHT11 Update:', data);
+        updateESP32DHT11Display(data);
+        updateESP32LastUpdate();
+    });
+    
+    // ESP32 relay state changes
+    socket.on('esp32:relay_status', function(data) {
+        console.log('🔌 ESP32 Relay Status:', data);
+        const card = document.getElementById(`load-${data.load_number}`);
+        if (card) {
+            card.className = `load-card ${data.relay_state ? '' : 'off'}`;
+            
+            const statusBadge = card.querySelector('.status-badge');
+            if (statusBadge) {
+                statusBadge.className = `status-badge ${data.relay_state ? 'on' : 'off'}`;
+                statusBadge.textContent = data.relay_state ? 'ON' : 'OFF';
+            }
+        }
+    });
+    
+    console.log('✅ ESP32 socket listeners ready');
+}
+
+function updateSummaryCards() {
+    let totalPower = 0;
+    let totalEnergy = 0;
+    let activeLoads = 0;
+    
+    // Calculate totals from all load cards
+    for (let i = 1; i <= 2; i++) {
+        const powerEl = document.getElementById(`power-${i}`);
+        const energyEl = document.getElementById(`energy-${i}`);
+        const card = document.getElementById(`load-${i}`);
+        
+        if (powerEl) {
+            const power = parseFloat(powerEl.textContent) || 0;
+            totalPower += power;
+        }
+        
+        if (energyEl) {
+            const energy = parseFloat(energyEl.textContent) || 0;
+            totalEnergy += energy;
+        }
+        
+        if (card && !card.classList.contains('off')) {
+            activeLoads++;
+        }
+    }
+    
+    // Update summary display
+    const totalPowerEl = document.getElementById('totalPower');
+    const totalEnergyEl = document.getElementById('totalEnergy');
+    const totalCostEl = document.getElementById('totalCost');
+    const activeLoadsEl = document.getElementById('activeLoads');
+    
+    if (totalPowerEl) totalPowerEl.textContent = `${totalPower.toFixed(1)} W`;
+    if (totalEnergyEl) totalEnergyEl.textContent = `${totalEnergy.toFixed(4)} kWh`;
+    if (totalCostEl) totalCostEl.textContent = `$${(totalEnergy * 0.12).toFixed(4)}`; // $0.12 per kWh
+    if (activeLoadsEl) activeLoadsEl.textContent = `${activeLoads} / 2`;
+}
+
+function updateESP32DHT11Display(data) {
+    const tempEl = document.getElementById('esp32Temperature');
+    const humidityEl = document.getElementById('esp32Humidity');
+    
+    if (tempEl) tempEl.textContent = `${data.temperature.toFixed(1)} °C`;
+    if (humidityEl) humidityEl.textContent = `${data.humidity.toFixed(1)} %`;
+}
+
+function updateESP32LastUpdate() {
+    const lastUpdateEl = document.getElementById('esp32LastUpdate');
+    if (lastUpdateEl) {
+        lastUpdateEl.textContent = new Date().toLocaleTimeString();
+    }
+}
+
+async function toggleLoad(loadId, turnOn) {
+    try {
+        console.log(`🔌 Toggling Load ${loadId} to ${turnOn ? 'ON' : 'OFF'}`);
+        
+        const response = await apiCall(`/api/loads/${loadId}/control`, {
+            method: 'POST',
+            body: JSON.stringify({ state: turnOn ? 'ON' : 'OFF' })
+        });
+        
+        if (response.success) {
+            showNotification(`Load ${loadId} turned ${turnOn ? 'ON' : 'OFF'}`, 'success');
+            
+            // Immediately update UI for better responsiveness
+            const card = document.getElementById(`load-${loadId}`);
+            if (card) {
+                card.className = `load-card ${turnOn ? '' : 'off'}`;
+                
+                const statusBadge = card.querySelector('.status-badge');
+                if (statusBadge) {
+                    statusBadge.className = `status-badge ${turnOn ? 'on' : 'off'}`;
+                    statusBadge.textContent = turnOn ? 'ON' : 'OFF';
+                }
+                
+                const powerBtn = card.querySelector('.control-btn:first-child');
+                if (powerBtn) {
+                    powerBtn.className = `control-btn ${turnOn ? 'power-off' : 'power-on'}`;
+                    powerBtn.innerHTML = `<i class="fas fa-power-off"></i> ${turnOn ? 'Turn Off' : 'Turn On'}`;
+                }
+            }
+        } else {
+            showNotification(response.error || 'Failed to control load', 'error');
+        }
+    } catch (error) {
+        console.error('Error toggling load:', error);
+        showNotification('Failed to control load - check connection', 'error');
+    }
+}
+
+async function toggleAutoMode(loadId, enable) {
+    try {
+        const response = await apiCall(`/api/loads/${loadId}/auto-mode`, {
+            method: 'POST',
+            body: JSON.stringify({ enabled: enable })
+        });
+        
+        if (response.success) {
+            const card = document.getElementById(`load-${loadId}`);
+            if (card) {
+                const autoBadge = card.querySelector('.auto-badge');
+                const autoBtn = card.querySelector('.control-btn.auto');
+                
+                if (autoBadge) {
+                    autoBadge.classList.toggle('hidden', !enable);
+                }
+                if (autoBtn) {
+                    autoBtn.classList.toggle('active', enable);
+                }
+            }
+            showNotification(`Auto mode ${enable ? 'enabled' : 'disabled'}`, 'success');
+        }
+    } catch (error) {
+        console.error('Error toggling auto mode:', error);
+        showNotification('Failed to toggle auto mode', 'error');
     }
 }

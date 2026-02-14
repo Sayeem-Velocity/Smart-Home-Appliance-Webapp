@@ -81,18 +81,18 @@ function generateToken() {
 function authMiddleware(req, res, next) {
     const token = req.headers.authorization?.replace('Bearer ', '');
     
-    if (!token || token === 'null') {
+    if (!token || token === 'null' || token === 'undefined') {
         // Don't log null tokens (happens on page load with cleared storage)
-        return res.status(401).json({ error: 'No token provided' });
+        return res.status(401).json({ error: 'No token provided', hint: 'Please login again' });
     }
     
     const session = validateSession(token);
     if (!session) {
-        console.log(`❌ Auth failed: Invalid token: ${token.substring(0, 10)}...`);
-        return res.status(401).json({ error: 'Invalid or expired token' });
+        console.log(`❌ Auth failed: Invalid token: ${token.substring(0, 15)}... | Sessions count: ${sessions.size}`);
+        return res.status(401).json({ error: 'Invalid or expired token', hint: 'Your session expired. Please login again.' });
     }
     
-    console.log(`✅ Auth success: ${session.username} - ${req.method} ${req.path}`);
+    // Successful auth - don't log for every request to reduce noise
     req.user = session;
     next();
 }
