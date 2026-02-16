@@ -381,12 +381,48 @@ function setupSocketListeners() {
         document.getElementById('humidity').textContent = `${parseFloat(data.humidity).toFixed(1)} %`;
         
         addDHT11DataPoint(data.temperature, data.humidity, data.timestamp);
+        
+        // Apply temperature-based control logic
+        applyTemperatureControl(parseFloat(data.temperature));
     });
     
     // Relay status updates
     socket.on('esp32:relay_status', (data) => {
         updateRelayStatus(data.load_number, data.relay_state);
     });
+}
+
+// Track current relay states for temperature control
+let currentRelayStates = { 1: false, 2: false };
+let lastTempControlState = null;
+
+// Temperature-based automatic load control
+// Logic: temp >= 30°C → Fan ON (Load 2), Bulb/Heater OFF (Load 1)
+//        temp < 30°C → Bulb/Heater ON (Load 1), Fan OFF (Load 2)
+function applyTemperatureControl(temperature) {
+    const highTemp = temperature >= 30;
+    const stateKey = highTemp ? 'fan_on' : 'bulb_on';
+    
+    // Only apply control if state changed
+    if (lastTempControlState === stateKey) {
+        return;
+    }
+    
+    lastTempControlState = stateKey;
+    
+    if (highTemp) {
+        // High temperature: Fan ON, Bulb/Heater OFF
+        console.log(`🌡️ Temp ${temperature}°C >= 30°C - Fan ON, Bulb/Heater OFF`);
+        showNotification(`Auto: Temp ${temperature.toFixed(1)}°C ≥ 30°C - Fan ON, Bulb OFF`, 'info');
+        controlRelay(1, false); // Bulb/Heater OFF
+        setTimeout(() => controlRelay(2, true), 300); // Fan ON
+    } else {
+        // Low temperature: Bulb/Heater ON, Fan OFF
+        console.log(`🌡️ Temp ${temperature}°C < 30°C - Bulb/Heater ON, Fan OFF`);
+        showNotification(`Auto: Temp ${temperature.toFixed(1)}°C < 30°C - Bulb ON, Fan OFF`, 'info');
+        controlRelay(2, false); // Fan OFF
+        setTimeout(() => controlRelay(1, true), 300); // Bulb/Heater ON
+    }
 }
 
 /************************************************************

@@ -281,13 +281,13 @@ function updateLoadConnectionStatus(loadNum, isConnected) {
 }
 
 function showLoadConnectedNotification(loadNum) {
-    const loadNames = { 1: 'AC Heater (Load 1)', 2: 'AC Bulb (Load 2)' };
+    const loadNames = { 1: 'AC Bulb/Heater (Load 1)', 2: 'AC Fan (Load 2)' };
     showToast(`${loadNames[loadNum]} has been plugged in! Auto-turning ON...`, 'success');
     addAlert(`${loadNames[loadNum]} plugged in - Auto ON`, 'success');
 }
 
 function showLoadDisconnectedNotification(loadNum) {
-    const loadNames = { 1: 'AC Heater (Load 1)', 2: 'AC Bulb (Load 2)' };
+    const loadNames = { 1: 'AC Bulb/Heater (Load 1)', 2: 'AC Fan (Load 2)' };
     showToast(`${loadNames[loadNum]} has been unplugged!`, 'warning');
     addAlert(`${loadNames[loadNum]} unplugged`, 'warning');
 }
@@ -322,9 +322,59 @@ function handleDHT11Update(data) {
     // Update temperature chart if on analytics page
     updateTemperatureChart();
     
+    // Temperature-based automatic control logic
+    // If temp >= 30°C: Fan ON (Load 2), Bulb/Heater OFF (Load 1)
+    // If temp < 30°C: Bulb/Heater ON (Load 1), Fan OFF (Load 2)
+    applyTemperatureControl(currentData.environment.temperature);
+    
     // Check for temperature alerts
     if (currentData.environment.temperature > 35) {
         addAlert(`High temperature warning: ${currentData.environment.temperature.toFixed(1)}°C`, 'warning');
+    }
+}
+
+// Temperature-based automatic load control
+// Logic: temp >= 30°C → Fan ON, Bulb/Heater OFF | temp < 30°C → Bulb/Heater ON, Fan OFF
+let lastTempControlState = null; // Track state to avoid repeated commands
+
+function applyTemperatureControl(temperature) {
+    // Determine desired state based on temperature
+    const highTemp = temperature >= 30;
+    const stateKey = highTemp ? 'fan_on' : 'bulb_on';
+    
+    // Only apply control if state changed (to avoid spamming commands)
+    if (lastTempControlState === stateKey) {
+        return;
+    }
+    
+    lastTempControlState = stateKey;
+    
+    if (highTemp) {
+        // High temperature (>=30°C): Turn ON Fan (Load 2), Turn OFF Bulb/Heater (Load 1)
+        console.log(`🌡️ Temperature ${temperature}°C >= 30°C - Activating Fan, Deactivating Bulb/Heater`);
+        addAlert(`Auto-control: Temp ${temperature.toFixed(1)}°C ≥ 30°C - Fan ON, Bulb/Heater OFF`, 'info');
+        
+        // Turn OFF Bulb/Heater (Load 1)
+        if (currentData.load1.relay) {
+            controlRelay(1, false);
+        }
+        // Turn ON Fan (Load 2)
+        if (!currentData.load2.relay) {
+            setTimeout(() => controlRelay(2, true), 300);
+        }
+    } else {
+        // Low temperature (<30°C): Turn ON Bulb/Heater (Load 1), Turn OFF Fan (Load 2)
+        console.log(`🌡️ Temperature ${temperature}°C < 30°C - Activating Bulb/Heater, Deactivating Fan`);
+        addAlert(`Auto-control: Temp ${temperature.toFixed(1)}°C < 30°C - Bulb/Heater ON, Fan OFF`, 'info');
+        
+        // Turn OFF Fan (Load 2)
+        if (currentData.load2.relay) {
+            controlRelay(2, false);
+        }
+        // Turn ON Bulb/Heater (Load 1)
+        if (!currentData.load1.relay) {
+            setTimeout(() => controlRelay(1, true), 300);
+        }
     }
 }
 
@@ -350,7 +400,7 @@ function handleRelayUpdate(data) {
     }
     
     // Show notification
-    const loadNames = { 1: 'AC Heater', 2: 'AC Bulb' };
+    const loadNames = { 1: 'AC Bulb/Heater', 2: 'AC Fan' };
     addAlert(`${loadNames[loadNum]} relay ${isOn ? 'turned ON' : 'turned OFF'}`, isOn ? 'success' : 'info');
 }
 

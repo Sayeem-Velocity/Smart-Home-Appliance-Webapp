@@ -185,10 +185,10 @@
 
             <!-- Load Cards Row -->
             <div class="loads-row">
-                <!-- Load 1 Card - AC Heater -->
+                <!-- Load 1 Card - AC Bulb/Heater -->
                 <div class="load-card" id="load1Card">
                     <div class="load-header">
-                        <h3><i class="fas fa-fire-alt load-icon" id="load1Icon"></i> AC Heater</h3>
+                        <h3><i class="fas fa-lightbulb load-icon" id="load1Icon"></i> AC Bulb/Heater</h3>
                         <div class="load-status" id="load1Status">
                             <span class="status-badge off">OFF</span>
                         </div>
@@ -229,10 +229,10 @@
                     </div>
                 </div>
 
-                <!-- Load 2 Card - AC Bulb -->
+                <!-- Load 2 Card - AC Fan -->
                 <div class="load-card" id="load2Card">
                     <div class="load-header">
-                        <h3><i class="fas fa-lightbulb load-icon" id="load2Icon"></i> AC Bulb</h3>
+                        <h3><i class="fas fa-fan load-icon" id="load2Icon"></i> AC Fan</h3>
                         <div class="load-status" id="load2Status">
                             <span class="status-badge off">OFF</span>
                         </div>
@@ -273,52 +273,6 @@
                     </div>
                 </div>
 
-                <!-- Load 3 Card - DC Fan (Inactive) -->
-                <div class="load-card inactive" id="load3Card">
-                    <div class="load-header">
-                        <h3><i class="fas fa-fan load-icon"></i> DC Fan</h3>
-                        <div class="load-status">
-                            <span class="status-badge inactive">INACTIVE</span>
-                        </div>
-                    </div>
-                    <div class="load-gauges dimmed">
-                        <div class="gauge-container">
-                            <canvas id="voltageGauge3" width="120" height="120"></canvas>
-                            <div class="gauge-label">
-                                <span class="gauge-value">--</span>
-                                <span class="gauge-unit">V</span>
-                            </div>
-                            <span class="gauge-title">Voltage</span>
-                        </div>
-                        <div class="gauge-container">
-                            <canvas id="currentGauge3" width="120" height="120"></canvas>
-                            <div class="gauge-label">
-                                <span class="gauge-value">--</span>
-                                <span class="gauge-unit">A</span>
-                            </div>
-                            <span class="gauge-title">Current</span>
-                        </div>
-                        <div class="gauge-container">
-                            <canvas id="powerGauge3" width="120" height="120"></canvas>
-                            <div class="gauge-label">
-                                <span class="gauge-value">--</span>
-                                <span class="gauge-unit">W</span>
-                            </div>
-                            <span class="gauge-title">Power</span>
-                        </div>
-                    </div>
-                    <div class="load-controls">
-                        <button class="control-btn on disabled" disabled>
-                            <i class="fas fa-power-off"></i> Turn ON
-                        </button>
-                        <button class="control-btn off disabled" disabled>
-                            <i class="fas fa-power-off"></i> Turn OFF
-                        </button>
-                    </div>
-                    <div class="inactive-overlay">
-                        <span>Coming Soon</span>
-                    </div>
-                </div>
             </div>
 
             <!-- Environment Card -->
@@ -393,12 +347,12 @@
                 <h2>Load Control Panel</h2>
             </div>
             <div class="load-control-grid">
-                <!-- AC Heater Control Panel -->
+                <!-- AC Bulb/Heater Control Panel -->
                 <div class="control-panel" id="controlPanel1">
                     <div class="panel-header">
                         <div class="panel-title">
-                            <i class="fas fa-fire-alt panel-icon" id="panel1Icon"></i>
-                            <h3>AC Heater</h3>
+                            <i class="fas fa-lightbulb panel-icon" id="panel1Icon"></i>
+                            <h3>AC Bulb/Heater</h3>
                         </div>
                         <div class="toggle-switch">
                             <input type="checkbox" id="load1Toggle" onchange="toggleLoad(1, this.checked)">
@@ -425,12 +379,12 @@
                     </div>
                 </div>
 
-                <!-- AC Bulb Control Panel -->
+                <!-- AC Fan Control Panel -->
                 <div class="control-panel" id="controlPanel2">
                     <div class="panel-header">
                         <div class="panel-title">
-                            <i class="fas fa-lightbulb panel-icon" id="panel2Icon"></i>
-                            <h3>AC Bulb</h3>
+                            <i class="fas fa-fan panel-icon" id="panel2Icon"></i>
+                            <h3>AC Fan</h3>
                         </div>
                         <div class="toggle-switch">
                             <input type="checkbox" id="load2Toggle" onchange="toggleLoad(2, this.checked)">
@@ -457,30 +411,6 @@
                     </div>
                 </div>
 
-                <!-- DC Fan Control Panel (Inactive) -->
-                <div class="control-panel inactive">
-                    <div class="panel-header">
-                        <div class="panel-title">
-                            <i class="fas fa-fan panel-icon"></i>
-                            <h3>DC Fan</h3>
-                        </div>
-                        <div class="toggle-switch">
-                            <input type="checkbox" id="load3Toggle" disabled>
-                            <label for="load3Toggle"></label>
-                        </div>
-                    </div>
-                    <div class="panel-body">
-                        <div class="info-row">
-                            <span>Status:</span>
-                            <span class="status-text inactive">INACTIVE</span>
-                        </div>
-                        <div class="info-row">
-                            <span>Note:</span>
-                            <span>Coming soon...</span>
-                        </div>
-                    </div>
-                    <div class="inactive-overlay"><span>Coming Soon</span></div>
-                </div>
             </div>
         </div>
 
@@ -518,8 +448,8 @@
                 <div class="db-controls">
                     <select id="dbTableSelect" onchange="loadDatabaseTable()">
                         <option value="telemetry">All Telemetry</option>
-                        <option value="load1">AC Heater (Load 1)</option>
-                        <option value="load2">AC Bulb (Load 2)</option>
+                        <option value="load1">AC Bulb/Heater (Load 1)</option>
+                        <option value="load2">AC Fan (Load 2)</option>
                         <option value="dht11">DHT11 Sensor</option>
                     </select>
                     <button class="refresh-btn" onclick="loadDatabaseTable()">
@@ -616,8 +546,8 @@
                     <button class="suggestion-btn" onclick="askQuestion('How can I save energy and reduce my electricity bill?')"><i class="fas fa-leaf"></i> Energy saving tips</button>
                     <button class="suggestion-btn" onclick="askQuestion('Analyze my usage patterns and predict monthly cost')"><i class="fas fa-chart-bar"></i> Cost prediction</button>
                     <button class="suggestion-btn" onclick="askQuestion('What is the temperature and humidity?')"><i class="fas fa-thermometer-half"></i> Environment status</button>
-                    <button class="suggestion-btn" onclick="askQuestion('Tell me about the AC Heater status')"><i class="fas fa-plug"></i> AC Heater details</button>
-                    <button class="suggestion-btn" onclick="askQuestion('Tell me about the AC Bulb status')"><i class="fas fa-lightbulb"></i> AC Bulb details</button>
+                    <button class="suggestion-btn" onclick="askQuestion('Tell me about the AC Bulb/Heater status')"><i class="fas fa-plug"></i> AC Bulb/Heater details</button>
+                    <button class="suggestion-btn" onclick="askQuestion('Tell me about the AC Fan status')"><i class="fas fa-fan"></i> AC Fan details</button>
                 </div>
             </div>
         </div>
@@ -629,14 +559,14 @@
                 <p class="page-description">Configure power thresholds for automatic load control. When power exceeds the threshold, the relay will automatically turn off.</p>
             </div>
             <div class="threshold-grid">
-                <!-- AC Heater Threshold -->
+                <!-- AC Bulb/Heater Threshold -->
                 <div class="threshold-card" id="threshold1Card">
                     <div class="threshold-header">
                         <div class="threshold-icon heater">
-                            <i class="fas fa-fire-alt"></i>
+                            <i class="fas fa-lightbulb"></i>
                         </div>
                         <div class="threshold-title">
-                            <h3>AC Heater (Load 1)</h3>
+                            <h3>AC Bulb/Heater (Load 1)</h3>
                             <span class="threshold-status" id="threshold1Status">Active</span>
                         </div>
                     </div>
@@ -682,14 +612,14 @@
                     </div>
                 </div>
 
-                <!-- AC Bulb Threshold -->
+                <!-- AC Fan Threshold -->
                 <div class="threshold-card" id="threshold2Card">
                     <div class="threshold-header">
                         <div class="threshold-icon bulb">
-                            <i class="fas fa-lightbulb"></i>
+                            <i class="fas fa-fan"></i>
                         </div>
                         <div class="threshold-title">
-                            <h3>AC Bulb (Load 2)</h3>
+                            <h3>AC Fan (Load 2)</h3>
                             <span class="threshold-status" id="threshold2Status">Active</span>
                         </div>
                     </div>
@@ -735,39 +665,6 @@
                     </div>
                 </div>
 
-                <!-- DC Fan Threshold (Inactive) -->
-                <div class="threshold-card inactive">
-                    <div class="threshold-header">
-                        <div class="threshold-icon fan">
-                            <i class="fas fa-fan"></i>
-                        </div>
-                        <div class="threshold-title">
-                            <h3>DC Fan (Load 3)</h3>
-                            <span class="threshold-status inactive">Inactive</span>
-                        </div>
-                    </div>
-                    <div class="threshold-body">
-                        <div class="current-power">
-                            <span class="power-label">Current Power</span>
-                            <span class="power-value">-- W</span>
-                        </div>
-                        <div class="threshold-slider-container dimmed">
-                            <label>Power Threshold</label>
-                            <div class="slider-row">
-                                <input type="range" class="threshold-slider" disabled value="50">
-                                <input type="number" class="threshold-input" disabled value="50">
-                                <span class="threshold-unit">W</span>
-                            </div>
-                        </div>
-                        <div class="threshold-info">
-                            <div class="info-item">
-                                <i class="fas fa-info-circle"></i>
-                                <span>Coming soon...</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="inactive-overlay"><span>Coming Soon</span></div>
-                </div>
             </div>
 
             <!-- Threshold History -->
