@@ -151,7 +151,7 @@ CREATE INDEX idx_ai_events_type ON ai_events(event_type);
 -- ESP32 Load Data - Real-time measurements from ESP32
 CREATE TABLE esp32_load_data (
     id SERIAL PRIMARY KEY,
-    load_number INTEGER NOT NULL,       -- 1 or 2 (Load-1: 100W, Load-2: 8W)
+    load_number INTEGER NOT NULL,       -- 1 or 2 (Load-1: AC Bulb/Heater, Load-2: AC Fan)
     voltage DECIMAL(10,3),
     current DECIMAL(10,4),
     power DECIMAL(10,3),
@@ -162,6 +162,7 @@ CREATE TABLE esp32_load_data (
 CREATE INDEX idx_esp32_load_timestamp ON esp32_load_data(load_number, timestamp DESC);
 
 -- ESP32 DHT11 Sensor Data - Temperature and Humidity
+-- Used for temperature-based control: temp >= 30°C → Fan ON, temp < 30°C → Bulb/Heater ON
 CREATE TABLE esp32_dht11_data (
     id SERIAL PRIMARY KEY,
     temperature DECIMAL(5,2),
@@ -184,8 +185,8 @@ CREATE TABLE esp32_relay_config (
 -- Initialize with default values for both loads
 INSERT INTO esp32_relay_config (load_number, power_threshold, relay_state, auto_mode) 
 VALUES 
-    (1, 120.0, FALSE, TRUE),  -- Load 1: 100W bulb, threshold 120W
-    (2, 15.0, FALSE, TRUE)    -- Load 2: 8W bulb, threshold 15W
+    (1, 120.0, FALSE, TRUE),  -- Load 1: AC Bulb/Heater, threshold 120W
+    (2, 100.0, FALSE, TRUE)   -- Load 2: AC Fan, threshold 100W
 ON CONFLICT (load_number) DO NOTHING;
 
 -- =====================================================
