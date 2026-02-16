@@ -31,8 +31,8 @@ async function initDatabase() {
         await pool.query(`
             INSERT INTO loads (name, type, device_type, description, max_voltage, max_current, max_power)
             VALUES 
-                ('AC Bulb/Heater', 'AC', 'bulb', '220V LED Bulb or Heater', 220, 1, 150),
-                ('AC Fan', 'AC', 'fan', '220V AC Cooling Fan', 220, 0.5, 100)
+                ('AC Bulb/Heater', 'AC', 'heater', '220V LED Bulb or Heater', 220, 2, 200),
+                ('AC Fan', 'AC', 'fan', '220V AC Cooling Fan', 220, 1, 120)
             ON CONFLICT DO NOTHING
         `);
         console.log('✅ Loads created');
@@ -51,12 +51,12 @@ async function initDatabase() {
             VALUES 
                 -- AC Bulb/Heater thresholds (Load 1)
                 (1, 'voltage', 200, 240, 205, 235, 245),
-                (1, 'current', 0, 1.2, 0, 1.0, 1.2),
-                (1, 'power', 0, 150, 0, 130, 150),
+                (1, 'current', 0, 2.0, 0, 1.5, 2.0),
+                (1, 'power', 0, 200, 0, 180, 200),
                 
                 -- AC Fan thresholds (Load 2)
                 (2, 'voltage', 200, 240, 205, 235, 245),
-                (2, 'current', 0, 0.6, 0, 0.5, 0.6),
+                (2, 'current', 0, 1.0, 0, 0.8, 1.0),
                 (2, 'power', 0, 120, 0, 100, 120)
             ON CONFLICT DO NOTHING
         `);

@@ -594,23 +594,21 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Handle threshold update from dashboard
-    socket.on('esp32:threshold_update', (data) => {
-        console.log('⚙️ Threshold update received:', data);
-        const loadNumber = data.load_number;
-        const threshold = data.power_threshold;
+    // Handle threshold update from dashboard - REMOVED (no more power thresholds)
+
+    // Handle mode control from dashboard (Auto/Manual)
+    socket.on('esp32:mode_control', (data) => {
+        console.log('🎛️ Mode control received:', data);
+        const mode = data.mode; // 'auto' or 'manual'
         
-        if (loadNumber && threshold !== undefined) {
-            // Publish to MQTT
-            mqttService.publishThresholdUpdate(loadNumber, threshold);
+        if (mode === 'auto' || mode === 'manual') {
+            // Publish mode change to ESP32 via MQTT
+            mqttService.publishModeControl(mode);
             
             // Echo back to all clients
-            io.emit('esp32:threshold_updated', {
-                load_number: loadNumber,
-                power_threshold: threshold
-            });
+            io.emit('esp32:mode_changed', { mode: mode });
             
-            console.log(`✅ Threshold ${loadNumber} updated: ${threshold}W`);
+            console.log(`✅ Control mode changed to: ${mode}`);
         }
     });
 

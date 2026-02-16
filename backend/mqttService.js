@@ -16,14 +16,18 @@ class MQTTService {
     
     // MQTT Topics
     this.topics = {
+      // New ESP32 topics (heater/fan)
+      HEATER_DATA: 'esp32/heater/data',
+      FAN_DATA: 'esp32/fan/data',
+      DHT_DATA: 'esp32/dht/data',
+      // Legacy topics (load1/load2) for backwards compatibility
       LOAD1_DATA: 'esp32/load1/data',
       LOAD2_DATA: 'esp32/load2/data',
       DHT11_DATA: 'esp32/dht11/data',
       RELAY1_CONTROL: 'esp32/relay1/control',
       RELAY2_CONTROL: 'esp32/relay2/control',
       RELAY1_STATUS: 'esp32/relay1/status',
-      RELAY2_STATUS: 'esp32/relay2/status',
-      THRESHOLD_UPDATE: 'esp32/threshold/update'
+      RELAY2_STATUS: 'esp32/relay2/status'
     };
   }
 
@@ -84,11 +88,12 @@ class MQTTService {
 
       try {
         // Handle different topics
-        if (topic === this.topics.LOAD1_DATA) {
+        // Support both old (load1/load2) and new (heater/fan) topics
+        if (topic === this.topics.LOAD1_DATA || topic === this.topics.HEATER_DATA) {
           await this.handleLoadData(1, payload);
-        } else if (topic === this.topics.LOAD2_DATA) {
+        } else if (topic === this.topics.LOAD2_DATA || topic === this.topics.FAN_DATA) {
           await this.handleLoadData(2, payload);
-        } else if (topic === this.topics.DHT11_DATA) {
+        } else if (topic === this.topics.DHT11_DATA || topic === this.topics.DHT_DATA) {
           await this.handleDHT11Data(payload);
         } else if (topic === this.topics.RELAY1_STATUS) {
           await this.handleRelayStatus(1, payload);
@@ -222,24 +227,42 @@ class MQTTService {
   }
 
   /**
-   * Publish threshold update to ESP32
+   * Publish mode control command to ESP32 (auto/manual)
    */
-  publishThresholdUpdate(loadNumber, threshold) {
-    const message = JSON.stringify({
-      load_number: loadNumber,
-      power_threshold: threshold
-    });
+  publishModeControl(mode) {
+    const topic = 'esp32/mode/control';
+    const message = JSON.stringify({ mode: mode });
 
     aedes.publish({
-      topic: this.topics.THRESHOLD_UPDATE,
+      topic: topic,
       payload: message,
       qos: 1,
       retain: false
     }, (err) => {
       if (err) {
-        console.error(`❌ Failed to publish threshold update for Load ${loadNumber}:`, err);
+        console.error(`❌ Failed to publish mode control:`, err);
       } else {
-        console.log(`✅ Published threshold update: Load ${loadNumber} = ${threshold}W`);
+        console.log(`✅ Published mode control: ${mode}`);
+      }
+    });
+  }
+
+  /**
+   * Publish mode control to ESP32 (auto/manual)
+   */
+  publishModeControl(mode) {
+    const message = JSON.stringify({ mode: mode });
+
+    aedes.publish({
+      topic: 'esp32/mode/control',
+      payload: message,
+      qos: 1,
+      retain: false
+    }, (err) => {
+      if (err) {
+        console.error(`❌ Failed to publish mode control:`, err);
+      } else {
+        console.log(`✅ Published mode control: ${mode}`);
       }
     });
   }
@@ -319,20 +342,14 @@ class MQTTService {
    */
   async updateRelayConfig(loadNumber, config) {
     try {
-      const { power_threshold, auto_mode } = config;
+      const { auto_mode } = config;
       
       await pool.query(`
         UPDATE esp32_relay_config
-        SET power_threshold = COALESCE($1, power_threshold),
-            auto_mode = COALESCE($2, auto_mode),
+        SET auto_mode = COALESCE($1, auto_mode),
             updated_at = CURRENT_TIMESTAMP
-        WHERE load_number = $3
-      `, [power_threshold, auto_mode, loadNumber]);
-
-      // Publish threshold update to ESP32 if threshold changed
-      if (power_threshold !== undefined) {
-        this.publishThresholdUpdate(loadNumber, power_threshold);
-      }
+        WHERE load_number = $2
+      `, [auto_mode, loadNumber]);
 
       return true;
     } catch (error) {

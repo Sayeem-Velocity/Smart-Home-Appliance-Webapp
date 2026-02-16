@@ -35,10 +35,6 @@
                 <i class="fas fa-plug"></i>
                 <span>Load Control</span>
             </a>
-            <a href="#" class="nav-item" data-page="thresholds">
-                <i class="fas fa-sliders-h"></i>
-                <span>Thresholds</span>
-            </a>
             <a href="#" class="nav-item" data-page="analytics">
                 <i class="fas fa-chart-line"></i>
                 <span>Analytics</span>
@@ -190,7 +186,7 @@
                     <div class="load-header">
                         <h3><i class="fas fa-lightbulb load-icon" id="load1Icon"></i> AC Bulb/Heater</h3>
                         <div class="load-status" id="load1Status">
-                            <span class="status-badge off">OFF</span>
+                            <span class="status-badge off"></span>
                         </div>
                     </div>
                     <div class="load-gauges">
@@ -220,10 +216,13 @@
                         </div>
                     </div>
                     <div class="load-controls">
-                        <button class="control-btn on" id="load1OnBtn" onclick="controlRelay(1, true)">
+                        <div class="load-mode-indicator auto" id="load1ModeIndicator">
+                            <i class="fas fa-thermometer-half"></i> Auto Mode
+                        </div>
+                        <button class="control-btn on" id="load1OnBtn" onclick="controlRelay(1, true)" title="Turn ON (auto-switches to Manual mode)">
                             <i class="fas fa-power-off"></i> Turn ON
                         </button>
-                        <button class="control-btn off active" id="load1OffBtn" onclick="controlRelay(1, false)">
+                        <button class="control-btn off active" id="load1OffBtn" onclick="controlRelay(1, false)" title="Turn OFF (auto-switches to Manual mode)">
                             <i class="fas fa-power-off"></i> Turn OFF
                         </button>
                     </div>
@@ -234,7 +233,7 @@
                     <div class="load-header">
                         <h3><i class="fas fa-fan load-icon" id="load2Icon"></i> AC Fan</h3>
                         <div class="load-status" id="load2Status">
-                            <span class="status-badge off">OFF</span>
+                            <span class="status-badge off"></span>
                         </div>
                     </div>
                     <div class="load-gauges">
@@ -264,10 +263,13 @@
                         </div>
                     </div>
                     <div class="load-controls">
-                        <button class="control-btn on" id="load2OnBtn" onclick="controlRelay(2, true)">
+                        <div class="load-mode-indicator auto" id="load2ModeIndicator">
+                            <i class="fas fa-thermometer-half"></i> Auto Mode
+                        </div>
+                        <button class="control-btn on" id="load2OnBtn" onclick="controlRelay(2, true)" title="Turn ON (auto-switches to Manual mode)">
                             <i class="fas fa-power-off"></i> Turn ON
                         </button>
-                        <button class="control-btn off active" id="load2OffBtn" onclick="controlRelay(2, false)">
+                        <button class="control-btn off active" id="load2OffBtn" onclick="controlRelay(2, false)" title="Turn OFF (auto-switches to Manual mode)">
                             <i class="fas fa-power-off"></i> Turn OFF
                         </button>
                     </div>
@@ -298,6 +300,45 @@
                                 <span class="env-gauge-unit">%</span>
                             </div>
                             <span class="env-gauge-title">Humidity</span>
+                        </div>
+                    </div>
+                    <!-- Control Mode Panel -->
+                    <div class="auto-control-status" id="autoControlStatus">
+                        <div class="control-mode-header">
+                            <i class="fas fa-cogs"></i>
+                            <h4>Control Mode</h4>
+                        </div>
+                        <div class="control-mode-selector">
+                            <button class="mode-select-btn auto active" id="autoModeBtn" onclick="setControlMode('auto')" title="Auto mode: Temperature controls loads at 30°C threshold">
+                                <i class="fas fa-thermometer-half"></i>
+                                <span>Auto</span>
+                            </button>
+                            <button class="mode-select-btn manual" id="manualModeBtn" onclick="setControlMode('manual')" title="Manual mode: Use Turn ON/OFF buttons to control loads">
+                                <i class="fas fa-hand-pointer"></i>
+                                <span>Manual Control</span>
+                            </button>
+                        </div>
+                        <div class="control-modes">
+                            <div class="mode-item" id="tempControlMode">
+                                <div class="mode-icon temp-mode">
+                                    <i class="fas fa-thermometer-half"></i>
+                                </div>
+                                <div class="mode-info">
+                                    <span class="mode-name">Temperature Auto Control</span>
+                                    <span class="mode-detail" id="tempControlDetail">Waiting for data...</span>
+                                </div>
+                                <span class="mode-badge" id="tempModeBadge">STANDBY</span>
+                            </div>
+                            <div class="mode-item" id="manualControlMode">
+                                <div class="mode-icon manual-mode">
+                                    <i class="fas fa-hand-pointer"></i>
+                                </div>
+                                <div class="mode-info">
+                                    <span class="mode-name">Manual Control</span>
+                                    <span class="mode-detail" id="manualControlDetail">Use ON/OFF buttons to control loads</span>
+                                </div>
+                                <span class="mode-badge active" id="manualModeBadge">ACTIVE</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -548,134 +589,6 @@
                     <button class="suggestion-btn" onclick="askQuestion('What is the temperature and humidity?')"><i class="fas fa-thermometer-half"></i> Environment status</button>
                     <button class="suggestion-btn" onclick="askQuestion('Tell me about the AC Bulb/Heater status')"><i class="fas fa-plug"></i> AC Bulb/Heater details</button>
                     <button class="suggestion-btn" onclick="askQuestion('Tell me about the AC Fan status')"><i class="fas fa-fan"></i> AC Fan details</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Thresholds Page -->
-        <div id="thresholdsPage" class="page">
-            <div class="page-header">
-                <h2><i class="fas fa-sliders-h"></i> Threshold Control</h2>
-                <p class="page-description">Configure power thresholds for automatic load control. When power exceeds the threshold, the relay will automatically turn off.</p>
-            </div>
-            <div class="threshold-grid">
-                <!-- AC Bulb/Heater Threshold -->
-                <div class="threshold-card" id="threshold1Card">
-                    <div class="threshold-header">
-                        <div class="threshold-icon heater">
-                            <i class="fas fa-lightbulb"></i>
-                        </div>
-                        <div class="threshold-title">
-                            <h3>AC Bulb/Heater (Load 1)</h3>
-                            <span class="threshold-status" id="threshold1Status">Active</span>
-                        </div>
-                    </div>
-                    <div class="threshold-body">
-                        <div class="current-power">
-                            <span class="power-label">Current Power</span>
-                            <span class="power-value" id="threshold1Power">0 W</span>
-                        </div>
-                        <div class="threshold-slider-container">
-                            <label>Power Threshold</label>
-                            <div class="slider-row">
-                                <input type="range" id="threshold1Slider" class="threshold-slider" 
-                                    min="50" max="500" value="120" step="10"
-                                    oninput="updateThresholdValue(1, this.value)">
-                                <input type="number" id="threshold1Value" class="threshold-input" 
-                                    min="50" max="500" value="120" step="10"
-                                    onchange="updateThresholdSlider(1, this.value)">
-                                <span class="threshold-unit">W</span>
-                            </div>
-                            <div class="slider-labels">
-                                <span>50W</span>
-                                <span>500W</span>
-                            </div>
-                        </div>
-                        <div class="threshold-info">
-                            <div class="info-item">
-                                <i class="fas fa-bolt"></i>
-                                <span>Max Rated: <strong>150W</strong></span>
-                            </div>
-                            <div class="info-item">
-                                <i class="fas fa-shield-alt"></i>
-                                <span>Auto-off when exceeded</span>
-                            </div>
-                        </div>
-                        <div class="threshold-actions">
-                            <button class="threshold-btn save" onclick="saveThreshold(1)">
-                                <i class="fas fa-save"></i> Save Threshold
-                            </button>
-                            <button class="threshold-btn sync" onclick="syncThresholdFromESP32(1)">
-                                <i class="fas fa-sync-alt"></i> Sync from ESP32
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- AC Fan Threshold -->
-                <div class="threshold-card" id="threshold2Card">
-                    <div class="threshold-header">
-                        <div class="threshold-icon bulb">
-                            <i class="fas fa-fan"></i>
-                        </div>
-                        <div class="threshold-title">
-                            <h3>AC Fan (Load 2)</h3>
-                            <span class="threshold-status" id="threshold2Status">Active</span>
-                        </div>
-                    </div>
-                    <div class="threshold-body">
-                        <div class="current-power">
-                            <span class="power-label">Current Power</span>
-                            <span class="power-value" id="threshold2Power">0 W</span>
-                        </div>
-                        <div class="threshold-slider-container">
-                            <label>Power Threshold</label>
-                            <div class="slider-row">
-                                <input type="range" id="threshold2Slider" class="threshold-slider" 
-                                    min="5" max="100" value="15" step="1"
-                                    oninput="updateThresholdValue(2, this.value)">
-                                <input type="number" id="threshold2Value" class="threshold-input" 
-                                    min="5" max="100" value="15" step="1"
-                                    onchange="updateThresholdSlider(2, this.value)">
-                                <span class="threshold-unit">W</span>
-                            </div>
-                            <div class="slider-labels">
-                                <span>5W</span>
-                                <span>100W</span>
-                            </div>
-                        </div>
-                        <div class="threshold-info">
-                            <div class="info-item">
-                                <i class="fas fa-bolt"></i>
-                                <span>Max Rated: <strong>15W</strong></span>
-                            </div>
-                            <div class="info-item">
-                                <i class="fas fa-shield-alt"></i>
-                                <span>Auto-off when exceeded</span>
-                            </div>
-                        </div>
-                        <div class="threshold-actions">
-                            <button class="threshold-btn save" onclick="saveThreshold(2)">
-                                <i class="fas fa-save"></i> Save Threshold
-                            </button>
-                            <button class="threshold-btn sync" onclick="syncThresholdFromESP32(2)">
-                                <i class="fas fa-sync-alt"></i> Sync from ESP32
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- Threshold History -->
-            <div class="threshold-history-section">
-                <h3><i class="fas fa-history"></i> Threshold Events</h3>
-                <div class="threshold-history" id="thresholdHistory">
-                    <div class="history-item info">
-                        <i class="fas fa-info-circle"></i>
-                        <span>System ready. Threshold events will appear here.</span>
-                        <span class="history-time">--</span>
-                    </div>
                 </div>
             </div>
         </div>

@@ -143,7 +143,7 @@ router.post('/relay/:loadNumber/control', async (req, res) => {
 router.put('/relay/:loadNumber/config', async (req, res) => {
   try {
     const loadNumber = parseInt(req.params.loadNumber);
-    const { power_threshold, auto_mode } = req.body;
+    const { auto_mode } = req.body;
 
     if (loadNumber !== 1 && loadNumber !== 2) {
       return res.status(400).json({
@@ -153,7 +153,6 @@ router.put('/relay/:loadNumber/config', async (req, res) => {
     }
 
     await mqttService.updateRelayConfig(loadNumber, {
-      power_threshold,
       auto_mode
     });
 
@@ -162,7 +161,6 @@ router.put('/relay/:loadNumber/config', async (req, res) => {
       message: `Relay ${loadNumber} configuration updated`,
       data: {
         load_number: loadNumber,
-        power_threshold,
         auto_mode
       }
     });

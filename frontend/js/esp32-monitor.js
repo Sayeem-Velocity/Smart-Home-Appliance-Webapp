@@ -390,6 +390,14 @@ function setupSocketListeners() {
     socket.on('esp32:relay_status', (data) => {
         updateRelayStatus(data.load_number, data.relay_state);
     });
+
+    // Power overload protection alerts
+    socket.on('esp32:power_overload', (data) => {
+        const loadNames = { 1: 'AC Bulb/Heater', 2: 'AC Fan' };
+        const loadName = loadNames[data.load_number] || `Load ${data.load_number}`;
+        showNotification(`⚠️ OVERLOAD! ${loadName}: ${data.power.toFixed(1)}W > ${data.threshold}W - Auto OFF!`, 'error');
+        updateRelayStatus(data.load_number, false);
+    });
 }
 
 // Track current relay states for temperature control

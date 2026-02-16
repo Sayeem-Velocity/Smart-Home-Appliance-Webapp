@@ -185,8 +185,8 @@ CREATE TABLE esp32_relay_config (
 -- Initialize with default values for both loads
 INSERT INTO esp32_relay_config (load_number, power_threshold, relay_state, auto_mode) 
 VALUES 
-    (1, 120.0, FALSE, TRUE),  -- Load 1: AC Bulb/Heater, threshold 120W
-    (2, 100.0, FALSE, TRUE)   -- Load 2: AC Fan, threshold 100W
+    (1, 200.0, FALSE, TRUE),  -- Load 1: AC Bulb/Heater, threshold 200W
+    (2, 120.0, FALSE, TRUE)   -- Load 2: AC Fan, threshold 120W
 ON CONFLICT (load_number) DO NOTHING;
 
 -- =====================================================

@@ -45,6 +45,9 @@ const recordsPerPage = 15;
 let aiControlEnabled = false;
 let esp32Connected = false;
 
+// Control Mode: 'auto' = temperature-based, 'manual' = user ON/OFF buttons
+let controlMode = 'auto';  // Default to AUTO mode (temperature control)
+
 // ============================================
 // Initialization
 // ============================================
@@ -75,6 +78,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Load initial database data
     loadDatabaseTable();
+    
+    // Initialize control mode to AUTO
+    setControlMode('auto');
     
     console.log('✅ Dashboard initialized');
 });
@@ -137,6 +143,17 @@ function initializeSocket() {
         } else {
             addAlert('ESP32 disconnected', 'warning');
         }
+    });
+    
+    // Relay status feedback from ESP32
+    socket.on('esp32:relay_status', (data) => {
+        console.log('🔌 Relay Status from ESP32:', data);
+        const loadNum = data.load_number;
+        const isOn = data.relay_state === true || data.relay_state === 'true';
+        currentData[`load${loadNum}`].relay = isOn;
+        updateRelayStatus(loadNum, isOn);
+        updateButtonStates(loadNum, isOn);
+        updateRelayHardwareStatus(loadNum, isOn);
     });
 }
 
@@ -211,12 +228,6 @@ function handleLoadUpdate(data) {
     
     // Update UI
     updateLoadDisplay(loadNum, currentData[loadKey]);
-    
-    // Update threshold page power display
-    const thresholdPower = document.getElementById(`threshold${loadNum}Power`);
-    if (thresholdPower) {
-        thresholdPower.textContent = `${currentData[loadKey].power.toFixed(1)} W`;
-    }
     
     // Add to history
     const timestamp = new Date().toLocaleTimeString();
@@ -322,10 +333,15 @@ function handleDHT11Update(data) {
     // Update temperature chart if on analytics page
     updateTemperatureChart();
     
-    // Temperature-based automatic control logic
+    // Update auto control status display
+    updateAutoControlStatus(currentData.environment.temperature);
+    
+    // Temperature-based automatic control logic (only in Auto mode)
     // If temp >= 30°C: Fan ON (Load 2), Bulb/Heater OFF (Load 1)
     // If temp < 30°C: Bulb/Heater ON (Load 1), Fan OFF (Load 2)
-    applyTemperatureControl(currentData.environment.temperature);
+    if (controlMode === 'auto') {
+        applyTemperatureControl(currentData.environment.temperature);
+    }
     
     // Check for temperature alerts
     if (currentData.environment.temperature > 35) {
@@ -338,6 +354,9 @@ function handleDHT11Update(data) {
 let lastTempControlState = null; // Track state to avoid repeated commands
 
 function applyTemperatureControl(temperature) {
+    // Only apply in auto mode
+    if (controlMode !== 'auto') return;
+    
     // Determine desired state based on temperature
     const highTemp = temperature >= 30;
     const stateKey = highTemp ? 'fan_on' : 'bulb_on';
@@ -354,13 +373,13 @@ function applyTemperatureControl(temperature) {
         console.log(`🌡️ Temperature ${temperature}°C >= 30°C - Activating Fan, Deactivating Bulb/Heater`);
         addAlert(`Auto-control: Temp ${temperature.toFixed(1)}°C ≥ 30°C - Fan ON, Bulb/Heater OFF`, 'info');
         
-        // Turn OFF Bulb/Heater (Load 1)
+        // Turn OFF Bulb/Heater (Load 1) - direct relay control without mode check
         if (currentData.load1.relay) {
-            controlRelay(1, false);
+            sendRelayCommand(1, false);
         }
         // Turn ON Fan (Load 2)
         if (!currentData.load2.relay) {
-            setTimeout(() => controlRelay(2, true), 300);
+            setTimeout(() => sendRelayCommand(2, true), 300);
         }
     } else {
         // Low temperature (<30°C): Turn ON Bulb/Heater (Load 1), Turn OFF Fan (Load 2)
@@ -369,12 +388,133 @@ function applyTemperatureControl(temperature) {
         
         // Turn OFF Fan (Load 2)
         if (currentData.load2.relay) {
-            controlRelay(2, false);
+            sendRelayCommand(2, false);
         }
         // Turn ON Bulb/Heater (Load 1)
         if (!currentData.load1.relay) {
-            setTimeout(() => controlRelay(1, true), 300);
+            setTimeout(() => sendRelayCommand(1, true), 300);
         }
+    }
+}
+
+// ============================================
+// Auto Control Status Panel
+// ============================================
+function updateAutoControlStatus(temperature) {
+    const tempDetail = document.getElementById('tempControlDetail');
+    const tempBadge = document.getElementById('tempModeBadge');
+    
+    if (tempDetail) {
+        if (temperature >= 30) {
+            tempDetail.textContent = `${temperature.toFixed(1)}°C ≥ 30°C → Fan ON, Heater OFF`;
+        } else {
+            tempDetail.textContent = `${temperature.toFixed(1)}°C < 30°C → Heater ON, Fan OFF`;
+        }
+    }
+    if (tempBadge) {
+        tempBadge.textContent = controlMode === 'auto' ? 'ACTIVE' : 'STANDBY';
+        tempBadge.className = controlMode === 'auto' ? 'mode-badge active' : 'mode-badge';
+    }
+}
+
+// Called when manual button is pressed to show manual override in panel
+function updateManualControlStatus(loadNum, state) {
+    const manualDetail = document.getElementById('manualControlDetail');
+    const manualBadge = document.getElementById('manualModeBadge');
+    const loadNames = { 1: 'Heater', 2: 'Fan' };
+    
+    if (manualDetail) {
+        manualDetail.textContent = `${loadNames[loadNum]} manually turned ${state ? 'ON' : 'OFF'}`;
+    }
+    if (manualBadge) {
+        manualBadge.textContent = 'ACTIVE';
+        manualBadge.className = 'mode-badge override';
+    }
+}
+
+// ============================================
+// Control Mode Functions
+// ============================================
+function setControlMode(mode) {
+    controlMode = mode;
+    console.log(`🎛️ Control mode set to: ${mode}`);
+    
+    // Send mode change to ESP32 via Socket.IO -> MQTT
+    if (socket) {
+        socket.emit('esp32:mode_control', { mode: mode });
+    }
+    
+    const autoBtn = document.getElementById('autoModeBtn');
+    const manualBtn = document.getElementById('manualModeBtn');
+    const tempBadge = document.getElementById('tempModeBadge');
+    const manualBadge = document.getElementById('manualModeBadge');
+    const manualDetail = document.getElementById('manualControlDetail');
+    const tempDetail = document.getElementById('tempControlDetail');
+    
+    // Toggle button active states
+    if (autoBtn && manualBtn) {
+        autoBtn.classList.toggle('active', mode === 'auto');
+        manualBtn.classList.toggle('active', mode === 'manual');
+    }
+    
+    // Update load card buttons (enable/disable)
+    const load1On = document.getElementById('load1OnBtn');
+    const load1Off = document.getElementById('load1OffBtn');
+    const load2On = document.getElementById('load2OnBtn');
+    const load2Off = document.getElementById('load2OffBtn');
+    const load1Indicator = document.getElementById('load1ModeIndicator');
+    const load2Indicator = document.getElementById('load2ModeIndicator');
+    
+    if (mode === 'manual') {
+        // Buttons are always enabled, just update indicators
+        
+        // Update mode indicators
+        if (load1Indicator) {
+            load1Indicator.innerHTML = '<i class="fas fa-hand-pointer"></i> Manual Mode';
+            load1Indicator.className = 'load-mode-indicator manual';
+        }
+        if (load2Indicator) {
+            load2Indicator.innerHTML = '<i class="fas fa-hand-pointer"></i> Manual Mode';
+            load2Indicator.className = 'load-mode-indicator manual';
+        }
+        
+        // Update badges
+        if (tempBadge) { tempBadge.textContent = 'STANDBY'; tempBadge.className = 'mode-badge'; }
+        if (manualBadge) { manualBadge.textContent = 'ACTIVE'; manualBadge.className = 'mode-badge override'; }
+        if (manualDetail) manualDetail.textContent = 'Click Turn ON/OFF buttons to control loads manually';
+        
+        // Reset temp control state so auto can re-trigger when switched back
+        lastTempControlState = null;
+        
+        showToast('Manual Mode Activated - Use Turn ON/OFF buttons', 'info');
+        addAlert('Manual mode ON: Use buttons to control loads', 'info');
+    } else {
+        // Buttons remain enabled, just update indicators
+        
+        // Update mode indicators
+        if (load1Indicator) {
+            load1Indicator.innerHTML = '<i class="fas fa-thermometer-half"></i> Auto Mode';
+            load1Indicator.className = 'load-mode-indicator auto';
+        }
+        if (load2Indicator) {
+            load2Indicator.innerHTML = '<i class="fas fa-thermometer-half"></i> Auto Mode';
+            load2Indicator.className = 'load-mode-indicator auto';
+        }
+        
+        // Update badges
+        if (tempBadge) { tempBadge.textContent = 'ACTIVE'; tempBadge.className = 'mode-badge active'; }
+        if (manualBadge) { manualBadge.textContent = 'STANDBY'; manualBadge.className = 'mode-badge'; }
+        if (manualDetail) manualDetail.textContent = 'Temperature automatically controls loads (≥30°C: Fan ON, <30°C: Heater ON)';
+        
+        // Reset and re-apply temperature control immediately
+        lastTempControlState = null;
+        if (currentData.environment.temperature > 0) {
+            console.log(`🌡️ Auto mode activated - Applying temperature control at ${currentData.environment.temperature}°C`);
+            applyTemperatureControl(currentData.environment.temperature);
+        }
+        
+        showToast('Auto Mode Activated - Temperature controls loads (30°C threshold)', 'success');
+        addAlert('Auto mode ON: ≥30°C = Fan ON, <30°C = Heater ON', 'info');
     }
 }
 
@@ -810,8 +950,13 @@ function updateTemperatureChart() {
 // ============================================
 // Relay Control
 // ============================================
-function controlRelay(loadNum, state) {
-    console.log(`🔌 Controlling relay ${loadNum}: ${state ? 'ON' : 'OFF'}`);
+// ============================================
+// Relay Control Functions
+// ============================================
+
+// Direct relay command (used by auto temperature control)
+function sendRelayCommand(loadNum, state) {
+    console.log(`🔌 Sending relay command ${loadNum}: ${state ? 'ON' : 'OFF'} (mode: ${controlMode})`);
     
     // Update button visual states immediately
     updateButtonStates(loadNum, state);
@@ -826,13 +971,34 @@ function controlRelay(loadNum, state) {
         }
     }
     
+    // Send command via socket
     socket.emit('esp32:relay_control', {
         load_id: loadNum,
         state: state
     });
     
-    const loadNames = { 1: 'AC Heater', 2: 'AC Bulb' };
-    showToast(`${loadNames[loadNum]} ${state ? 'turning ON' : 'turning OFF'}`, 'info');
+    const loadNames = { 1: 'AC Heater', 2: 'AC Fan' };
+    showToast(`${loadNames[loadNum]} ${state ? 'ON' : 'OFF'}`, 'info');
+}
+
+// Manual relay control (auto-switches to manual mode)
+function controlRelay(loadNum, state) {
+    // Auto-switch to manual mode if not already in manual mode
+    if (controlMode !== 'manual') {
+        console.log('🔄 Auto-switching to Manual mode');
+        setControlMode('manual');
+    }
+    
+    console.log(`🔌 Controlling relay ${loadNum}: ${state ? 'ON' : 'OFF'}`);
+    
+    // Update button visual states immediately
+    updateButtonStates(loadNum, state);
+    
+    // Update manual override status panel
+    updateManualControlStatus(loadNum, state);
+    
+    // Send relay command
+    sendRelayCommand(loadNum, state);
 }
 
 function updateButtonStates(loadNum, isOn) {
@@ -874,13 +1040,13 @@ function setupNavigation() {
             
             // Show page
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.getElementById(`${page}Page`).classList.add('active');
+            const targetPage = document.getElementById(`${page}Page`);
+            if (targetPage) targetPage.classList.add('active');
             
             // Update header title
             const titles = {
                 dashboard: 'Dashboard Overview',
                 loads: 'Load Control Panel',
-                thresholds: 'Threshold Control',
                 analytics: 'Analytics & Reports',
                 database: 'Database Records',
                 ai: 'AI Assistant',
@@ -1418,116 +1584,6 @@ async function loadDatabaseStats() {
     } catch (error) {
         console.log('Database stats not available');
     }
-}
-
-// ============================================
-// Threshold Control Functions
-// ============================================
-let thresholdValues = {
-    1: 120,
-    2: 15
-};
-
-function updateThresholdValue(loadNum, value) {
-    const slider = document.getElementById(`threshold${loadNum}Slider`);
-    const input = document.getElementById(`threshold${loadNum}Value`);
-    
-    if (slider) slider.value = value;
-    if (input) input.value = value;
-    
-    thresholdValues[loadNum] = parseInt(value);
-}
-
-function updateThresholdSlider(loadNum, value) {
-    updateThresholdValue(loadNum, value);
-}
-
-async function saveThreshold(loadNum) {
-    const threshold = thresholdValues[loadNum];
-    
-    showToast(`Saving threshold for Load ${loadNum}...`, 'info');
-    
-    try {
-        // Send to server (MQTT to ESP32)
-        const response = await fetch('/api/esp32/threshold', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            },
-            body: JSON.stringify({
-                load_number: loadNum,
-                power_threshold: threshold
-            })
-        });
-        
-        if (response.ok) {
-            showToast(`Threshold saved: Load ${loadNum} = ${threshold}W`, 'success');
-            addThresholdHistory('success', `Threshold updated for Load ${loadNum}: ${threshold}W`);
-            
-            // Also emit via socket for real-time
-            if (socket) {
-                socket.emit('esp32:threshold_update', {
-                    load_number: loadNum,
-                    power_threshold: threshold
-                });
-            }
-        } else {
-            throw new Error('Failed to save');
-        }
-    } catch (error) {
-        console.error('Error saving threshold:', error);
-        showToast('Failed to save threshold', 'error');
-        addThresholdHistory('error', `Failed to save threshold for Load ${loadNum}`);
-    }
-}
-
-async function syncThresholdFromESP32(loadNum) {
-    showToast(`Syncing threshold from ESP32...`, 'info');
-    
-    // For now, use default values from ESP32 code
-    const defaults = { 1: 120, 2: 15 };
-    
-    setTimeout(() => {
-        updateThresholdValue(loadNum, defaults[loadNum]);
-        showToast(`Synced: Load ${loadNum} threshold = ${defaults[loadNum]}W`, 'success');
-        addThresholdHistory('info', `Synced threshold from ESP32: Load ${loadNum} = ${defaults[loadNum]}W`);
-    }, 500);
-}
-
-function addThresholdHistory(type, message) {
-    const historyContainer = document.getElementById('thresholdHistory');
-    if (!historyContainer) return;
-    
-    const time = new Date().toLocaleTimeString();
-    const icons = {
-        info: 'fa-info-circle',
-        warning: 'fa-exclamation-triangle',
-        success: 'fa-check-circle',
-        error: 'fa-times-circle'
-    };
-    
-    const historyItem = document.createElement('div');
-    historyItem.className = `history-item ${type}`;
-    historyItem.innerHTML = `
-        <i class="fas ${icons[type]}"></i>
-        <span>${message}</span>
-        <span class="history-time">${time}</span>
-    `;
-    
-    // Insert at the beginning
-    historyContainer.insertBefore(historyItem, historyContainer.firstChild);
-    
-    // Keep only last 10 items
-    while (historyContainer.children.length > 10) {
-        historyContainer.removeChild(historyContainer.lastChild);
-    }
-}
-
-function updateThresholdDisplays() {
-    // Update current power displays on threshold page
-    document.getElementById('threshold1Power').textContent = `${currentData.load1.power.toFixed(1)} W`;
-    document.getElementById('threshold2Power').textContent = `${currentData.load2.power.toFixed(1)} W`;
 }
 
 // ============================================
