@@ -44,10 +44,10 @@ class MQTTService {
       // Listen on 0.0.0.0 to accept connections from all network interfaces (including ESP32)
       this.server.listen(this.port, '0.0.0.0', (err) => {
         if (err) {
-          console.error('❌ MQTT Broker failed to start:', err);
+          console.error(' MQTT Broker failed to start:', err);
           reject(err);
         } else {
-          console.log(`✅ MQTT Broker running on 0.0.0.0:${this.port} (accessible from network)`);
+          console.log(` MQTT Broker running on 0.0.0.0:${this.port} (accessible from network)`);
           this.setupHandlers();
           resolve();
         }
@@ -61,7 +61,7 @@ class MQTTService {
   setupHandlers() {
     // Client connected
     aedes.on('client', (client) => {
-      console.log(`📱 MQTT Client connected: ${client.id}`);
+      console.log(` MQTT Client connected: ${client.id}`);
       // Emit to Socket.IO clients
       if (this.io) {
         this.io.emit('mqtt:client_connected', { clientId: client.id });
@@ -71,7 +71,7 @@ class MQTTService {
 
     // Client disconnected
     aedes.on('clientDisconnect', (client) => {
-      console.log(`📱 MQTT Client disconnected: ${client.id}`);
+      console.log(` MQTT Client disconnected: ${client.id}`);
       // Emit to Socket.IO clients
       if (this.io) {
         this.io.emit('mqtt:client_disconnected', { clientId: client.id });
@@ -101,17 +101,17 @@ class MQTTService {
           await this.handleRelayStatus(2, payload);
         }
       } catch (error) {
-        console.error(`❌ Error handling MQTT message on topic ${topic}:`, error);
+        console.error(` Error handling MQTT message on topic ${topic}:`, error);
       }
     });
 
     // Subscribe event
     aedes.on('subscribe', (subscriptions, client) => {
-      console.log(`📡 MQTT Client ${client.id} subscribed to:`, 
+      console.log(` MQTT Client ${client.id} subscribed to:`, 
         subscriptions.map(s => s.topic).join(', '));
     });
 
-    console.log('✅ MQTT handlers configured');
+    console.log(' MQTT handlers configured');
   }
 
   /**
@@ -140,9 +140,9 @@ class MQTTService {
         });
       }
 
-      console.log(`📊 Load ${loadNumber} data saved: V=${voltage}V, I=${current}A, P=${power}W, Relay=${relay_state}`);
+      console.log(` Load ${loadNumber} data saved: V=${voltage}V, I=${current}A, P=${power}W, Relay=${relay_state}`);
     } catch (error) {
-      console.error(`❌ Error handling Load ${loadNumber} data:`, error);
+      console.error(` Error handling Load ${loadNumber} data:`, error);
     }
   }
 
@@ -169,9 +169,9 @@ class MQTTService {
         });
       }
 
-      console.log(`🌡️ DHT11 data saved: Temp=${temperature}°C, Humidity=${humidity}%`);
+      console.log(` DHT11 data saved: Temp=${temperature}°C, Humidity=${humidity}%`);
     } catch (error) {
-      console.error('❌ Error handling DHT11 data:', error);
+      console.error(' Error handling DHT11 data:', error);
     }
   }
 
@@ -199,9 +199,9 @@ class MQTTService {
         });
       }
 
-      console.log(`🔌 Relay ${loadNumber} status updated: ${relay_state ? 'ON' : 'OFF'}`);
+      console.log(` Relay ${loadNumber} status updated: ${relay_state ? 'ON' : 'OFF'}`);
     } catch (error) {
-      console.error(`❌ Error handling Relay ${loadNumber} status:`, error);
+      console.error(` Error handling Relay ${loadNumber} status:`, error);
     }
   }
 
@@ -219,9 +219,9 @@ class MQTTService {
       retain: false
     }, (err) => {
       if (err) {
-        console.error(`❌ Failed to publish relay control for Load ${loadNumber}:`, err);
+        console.error(` Failed to publish relay control for Load ${loadNumber}:`, err);
       } else {
-        console.log(`✅ Published relay control: Load ${loadNumber} = ${state ? 'ON' : 'OFF'}`);
+        console.log(` Published relay control: Load ${loadNumber} = ${state ? 'ON' : 'OFF'}`);
       }
     });
   }
@@ -240,9 +240,9 @@ class MQTTService {
       retain: false
     }, (err) => {
       if (err) {
-        console.error(`❌ Failed to publish mode control:`, err);
+        console.error(` Failed to publish mode control:`, err);
       } else {
-        console.log(`✅ Published mode control: ${mode}`);
+        console.log(` Published mode control: ${mode}`);
       }
     });
   }
@@ -260,9 +260,9 @@ class MQTTService {
       retain: false
     }, (err) => {
       if (err) {
-        console.error(`❌ Failed to publish mode control:`, err);
+        console.error(` Failed to publish mode control:`, err);
       } else {
-        console.log(`✅ Published mode control: ${mode}`);
+        console.log(` Published mode control: ${mode}`);
       }
     });
   }
@@ -302,7 +302,7 @@ class MQTTService {
         dht11: dht11Data.rows[0] || null
       };
     } catch (error) {
-      console.error('❌ Error fetching latest ESP32 data:', error);
+      console.error(' Error fetching latest ESP32 data:', error);
       // Return null data instead of throwing error
       return {
         load1: null,
@@ -332,7 +332,7 @@ class MQTTService {
 
       return result.rows;
     } catch (error) {
-      console.error(`❌ Error fetching historical data for Load ${loadNumber}:`, error);
+      console.error(` Error fetching historical data for Load ${loadNumber}:`, error);
       throw error;
     }
   }
@@ -353,7 +353,7 @@ class MQTTService {
 
       return true;
     } catch (error) {
-      console.error(`❌ Error updating relay config for Load ${loadNumber}:`, error);
+      console.error(` Error updating relay config for Load ${loadNumber}:`, error);
       throw error;
     }
   }
@@ -365,7 +365,7 @@ class MQTTService {
     return new Promise((resolve) => {
       if (this.server) {
         this.server.close(() => {
-          console.log('🛑 MQTT Broker shut down');
+          console.log(' MQTT Broker shut down');
           resolve();
         });
       } else {

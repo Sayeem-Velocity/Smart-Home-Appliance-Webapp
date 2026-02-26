@@ -14,7 +14,7 @@ const ELECTRICITY_RATE = 0.12; // $0.12 per kWh
 const energyAccumulators = {
     1: 0, // DC Fan
     2: 0, // AC Bulb
-    3: 0  // AC Heater
+    3: 0 // AC Heater
 };
 
 // Track simulation state
@@ -135,7 +135,7 @@ async function handleAutoControl(loadId, telemetry, isOn, autoMode, loadName) {
                 `SAFETY OFF: ${loadName} ${threshold.metric} (${value.toFixed(2)}) exceeded critical limit (${threshold.max_value})`,
                 'system'
             );
-            console.log(`⚠️ SAFETY: ${loadName} turned OFF - ${threshold.metric} = ${value.toFixed(2)} > ${threshold.max_value}`);
+            console.log(` SAFETY: ${loadName} turned OFF - ${threshold.metric} = ${value.toFixed(2)} > ${threshold.max_value}`);
             return { action: 'safety_off', reason: `${threshold.metric} (${value.toFixed(2)}) exceeded critical limit ${threshold.max_value}` };
         }
 
@@ -147,7 +147,7 @@ async function handleAutoControl(loadId, telemetry, isOn, autoMode, loadName) {
                 `Auto-off: ${loadName} ${threshold.metric} (${value.toFixed(2)}) exceeded threshold (${threshold.auto_off_threshold})`,
                 'system'
             );
-            console.log(`🤖 AUTO: ${loadName} turned OFF - ${threshold.metric} = ${value.toFixed(2)} > ${threshold.auto_off_threshold}`);
+            console.log(` AUTO: ${loadName} turned OFF - ${threshold.metric} = ${value.toFixed(2)} > ${threshold.auto_off_threshold}`);
             return { action: 'auto_off', reason: `${threshold.metric} exceeded ${threshold.auto_off_threshold}` };
         }
     }
@@ -224,7 +224,7 @@ function startSimulation(callback) {
     onDataCallback = callback;
     const interval = parseInt(process.env.SIMULATION_INTERVAL_MS) || 2000;
     
-    console.log(`📊 Starting simulation (interval: ${interval}ms)`);
+    console.log(` Starting simulation (interval: ${interval}ms)`);
     
     // Run immediately, then on interval
     simulateCycle();
@@ -238,7 +238,7 @@ function stopSimulation() {
     if (simulationInterval) {
         clearInterval(simulationInterval);
         simulationInterval = null;
-        console.log('📊 Simulation stopped');
+        console.log(' Simulation stopped');
     }
 }
 

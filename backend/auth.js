@@ -28,7 +28,7 @@ function login(username, password) {
     const user = DEMO_USERS[username];
     
     if (!user || user.password !== password) {
-        console.log(`❌ Login failed for user: ${username}`);
+        console.log(` Login failed for user: ${username}`);
         return { success: false, message: 'Invalid credentials' };
     }
     
@@ -41,7 +41,7 @@ function login(username, password) {
         createdAt: new Date()
     });
     
-    console.log(`✅ Login successful: ${username} (${user.role}) - Token: ${token.substring(0, 10)}...`);
+    console.log(` Login successful: ${username} (${user.role}) - Token: ${token.substring(0, 10)}...`);
     
     return {
         success: true,
@@ -88,7 +88,7 @@ function authMiddleware(req, res, next) {
     
     const session = validateSession(token);
     if (!session) {
-        console.log(`❌ Auth failed: Invalid token: ${token.substring(0, 15)}... | Sessions count: ${sessions.size}`);
+        console.log(` Auth failed: Invalid token: ${token.substring(0, 15)}... | Sessions count: ${sessions.size}`);
         return res.status(401).json({ error: 'Invalid or expired token', hint: 'Your session expired. Please login again.' });
     }
     

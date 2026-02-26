@@ -20,7 +20,7 @@ router.get('/status', async (req, res) => {
       data: data
     });
   } catch (error) {
-    console.error('❌ Error getting ESP32 status:', error);
+    console.error(' Error getting ESP32 status:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to get ESP32 status'
@@ -50,7 +50,7 @@ router.get('/load/:loadNumber/history', async (req, res) => {
       data: data
     });
   } catch (error) {
-    console.error('❌ Error getting historical data:', error);
+    console.error(' Error getting historical data:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to get historical data'
@@ -78,7 +78,7 @@ router.get('/dht11/history', async (req, res) => {
       data: result.rows
     });
   } catch (error) {
-    console.error('❌ Error getting DHT11 history:', error);
+    console.error(' Error getting DHT11 history:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to get DHT11 history'
@@ -128,7 +128,7 @@ router.post('/relay/:loadNumber/control', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('❌ Error controlling relay:', error);
+    console.error(' Error controlling relay:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to control relay'
@@ -165,7 +165,7 @@ router.put('/relay/:loadNumber/config', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('❌ Error updating relay config:', error);
+    console.error(' Error updating relay config:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to update relay configuration'
@@ -205,7 +205,7 @@ router.get('/relay/:loadNumber/config', async (req, res) => {
       data: result.rows[0]
     });
   } catch (error) {
-    console.error('❌ Error getting relay config:', error);
+    console.error(' Error getting relay config:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to get relay configuration'
@@ -240,7 +240,7 @@ router.get('/stats', async (req, res) => {
       data: result.rows
     });
   } catch (error) {
-    console.error('❌ Error getting ESP32 stats:', error);
+    console.error(' Error getting ESP32 stats:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to get statistics'
@@ -271,7 +271,7 @@ router.delete('/data/clear', async (req, res) => {
       message: `Cleared data older than ${days} days`
     });
   } catch (error) {
-    console.error('❌ Error clearing data:', error);
+    console.error(' Error clearing data:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to clear data'

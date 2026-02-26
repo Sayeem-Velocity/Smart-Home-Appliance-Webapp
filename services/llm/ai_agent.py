@@ -16,21 +16,21 @@ logger = logging.getLogger(__name__)
 
 class QuestionIntent(str, Enum):
     """Possible intents for user questions"""
-    STATUS = "status"                # Current load/system status
-    ALERTS = "alerts"                # Alert and warning information
-    ENERGY = "energy"                # Energy consumption queries
-    COST = "cost"                    # Cost analysis
-    CONTROL = "control"              # Control actions/recommendations
-    ANOMALY = "anomaly"              # Anomaly detection queries
-    COMPARISON = "comparison"        # Comparing loads/time periods
-    TREND = "trend"                  # Trend analysis
-    SCHEDULE = "schedule"            # Scheduling related
-    MAINTENANCE = "maintenance"      # Maintenance recommendations
-    SAFETY = "safety"                # Safety concerns
-    OPTIMIZATION = "optimization"    # Efficiency optimization
-    HISTORY = "history"              # Historical data
-    FORECAST = "forecast"            # Predictions/forecasts
-    GENERAL = "general"              # General questions
+    STATUS = "status" # Current load/system status
+    ALERTS = "alerts" # Alert and warning information
+    ENERGY = "energy" # Energy consumption queries
+    COST = "cost" # Cost analysis
+    CONTROL = "control" # Control actions/recommendations
+    ANOMALY = "anomaly" # Anomaly detection queries
+    COMPARISON = "comparison" # Comparing loads/time periods
+    TREND = "trend" # Trend analysis
+    SCHEDULE = "schedule" # Scheduling related
+    MAINTENANCE = "maintenance" # Maintenance recommendations
+    SAFETY = "safety" # Safety concerns
+    OPTIMIZATION = "optimization" # Efficiency optimization
+    HISTORY = "history" # Historical data
+    FORECAST = "forecast" # Predictions/forecasts
+    GENERAL = "general" # General questions
 
 
 class AIAgent:
@@ -331,7 +331,7 @@ class AIAgent:
         # Determine system health
         if critical_alerts > 0:
             health_status = 'critical'
-            health_message = f"⚠️ {critical_alerts} critical alert(s) require attention"
+            health_message = f" {critical_alerts} critical alert(s) require attention"
         elif len(alerts) > 3:
             health_status = 'warning'
             health_message = f"Multiple alerts ({len(alerts)}) - review recommended"
@@ -368,24 +368,24 @@ class AIAgent:
         # Check for high power loads
         for load in loads:
             if load.get('is_on') and load.get('current_power', 0) > 500:
-                tips.append(f"💡 {load.get('name', 'High-power load')} is consuming significant power")
+                tips.append(f" {load.get('name', 'High-power load')} is consuming significant power")
 
         # Check alerts
         if alerts:
-            tips.append(f"⚠️ Review {len(alerts)} active alert(s) in the Alerts panel")
+            tips.append(f" Review {len(alerts)} active alert(s) in the Alerts panel")
 
         # Time-based tips
         hour = datetime.now().hour
-        if 9 <= hour <= 17:  # Peak hours
-            tips.append("⏰ Peak hours - consider postponing non-essential high-power tasks")
+        if 9 <= hour <= 17: # Peak hours
+            tips.append(" Peak hours - consider postponing non-essential high-power tasks")
         elif hour >= 22 or hour < 6:
-            tips.append("🌙 Off-peak hours - good time for high-power scheduled tasks")
+            tips.append(" Off-peak hours - good time for high-power scheduled tasks")
 
         # Default tip if none generated
         if not tips:
-            tips.append("✅ All systems normal - no immediate actions required")
+            tips.append(" All systems normal - no immediate actions required")
 
-        return tips[:5]  # Limit to 5 tips
+        return tips[:5] # Limit to 5 tips
 
 
 # Singleton instance

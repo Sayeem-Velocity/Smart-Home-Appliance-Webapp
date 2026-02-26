@@ -2,43 +2,43 @@
 
 A Python-based AI agent service for the Smart Load Monitoring Dashboard, inspired by the ResearchBuddy architecture.
 
-## 🌟 Features
+## Features
 
-- **💬 Intelligent Chat**: Context-aware conversations about your electrical loads
-- **🔍 Intent Detection**: Automatic classification of user questions (status, alerts, energy, etc.)
-- **📊 Anomaly Detection**: AI-powered analysis of telemetry data
-- **⚡ Control Recommendations**: Safety-aware suggestions for load operations
-- **📈 Energy Insights**: Detailed consumption analysis and cost estimates
-- **🎯 Smart Tips**: Contextual energy-saving recommendations
+- ** Intelligent Chat**: Context-aware conversations about your electrical loads
+- ** Intent Detection**: Automatic classification of user questions (status, alerts, energy, etc.)
+- ** Anomaly Detection**: AI-powered analysis of telemetry data
+- ** Control Recommendations**: Safety-aware suggestions for load operations
+- ** Energy Insights**: Detailed consumption analysis and cost estimates
+- ** Smart Tips**: Contextual energy-saving recommendations
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 services/
 ├── api/
-│   ├── endpoints/
-│   │   ├── chat.py          # Chat endpoints
-│   │   ├── analysis.py      # Anomaly & load analysis
-│   │   └── insights.py      # Energy insights
-│   └── router.py            # Main API router
+│ ├── endpoints/
+│ │ ├── chat.py # Chat endpoints
+│ │ ├── analysis.py # Anomaly & load analysis
+│ │ └── insights.py # Energy insights
+│ └── router.py # Main API router
 ├── core/
-│   ├── config.py            # Settings & configuration
-│   ├── database.py          # PostgreSQL connection
-│   └── rate_limiter.py      # Rate limiting
+│ ├── config.py # Settings & configuration
+│ ├── database.py # PostgreSQL connection
+│ └── rate_limiter.py # Rate limiting
 ├── llm/
-│   ├── gemini_service.py    # Gemini AI integration
-│   └── ai_agent.py          # Intent detection agent
+│ ├── gemini_service.py # Gemini AI integration
+│ └── ai_agent.py # Intent detection agent
 ├── models/
-│   ├── chat.py              # Chat models
-│   └── analysis.py          # Analysis models
-├── main.py                  # FastAPI application
-├── requirements.txt         # Python dependencies
-├── .env.example             # Environment template
-├── setup.bat / setup.sh     # Setup scripts
-└── run.bat / run.sh         # Run scripts
+│ ├── chat.py # Chat models
+│ └── analysis.py # Analysis models
+├── main.py # FastAPI application
+├── requirements.txt # Python dependencies
+├── .env.example # Environment template
+├── setup.bat / setup.sh # Setup scripts
+└── run.bat / run.sh # Run scripts
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Setup
 
@@ -81,7 +81,7 @@ run.bat
 - **API Documentation**: http://localhost:8000/docs
 - **Health Check**: http://localhost:8000/health
 
-## 📚 API Endpoints
+## API Endpoints
 
 ### Chat
 - `POST /api/v1/chat/` - Send a message to the AI assistant
@@ -103,7 +103,7 @@ run.bat
 - `GET /api/v1/insights/recommendations` - Get personalized recommendations
 - `GET /api/v1/insights/stats` - Get usage statistics
 
-## 💬 Example Usage
+## Example Usage
 
 ### Chat with the AI
 
@@ -140,7 +140,7 @@ curl -X POST "http://localhost:8000/api/v1/analysis/control-recommendation" \
   -d '{"load_id": 1, "action": "on"}'
 ```
 
-## 🔧 Integration with Node.js Backend
+## Integration with Node.js Backend
 
 The AI service can work alongside your existing Node.js backend:
 
@@ -163,7 +163,7 @@ async function chatWithAI(message, context) {
 }
 ```
 
-## 🤖 Intent Detection
+## Intent Detection
 
 The AI agent automatically classifies user questions into categories:
 
@@ -177,7 +177,7 @@ The AI agent automatically classifies user questions into categories:
 | `anomaly` | unusual, spike, strange | "Any unusual readings?" |
 | `safety` | safe, dangerous, hazard | "Is it safe to run?" |
 
-## 📊 Rate Limiting
+## Rate Limiting
 
 Default limits:
 - **Chat**: 100 requests/day per user
@@ -185,7 +185,7 @@ Default limits:
 
 Limits reset daily at midnight UTC.
 
-## 🔒 Environment Variables
+## Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -197,7 +197,7 @@ Limits reset daily at midnight UTC.
 | `DB_HOST` | PostgreSQL host | localhost |
 | `DB_NAME` | Database name | smart_load_db |
 
-## 🧪 Testing
+## Testing
 
 ```bash
 # Run tests
@@ -207,6 +207,6 @@ pytest
 pytest --cov=services
 ```
 
-## 📝 License
+## License
 
 MIT License - Feel free to use and modify!

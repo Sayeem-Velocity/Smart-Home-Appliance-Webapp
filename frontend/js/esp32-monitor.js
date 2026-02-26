@@ -395,7 +395,7 @@ function setupSocketListeners() {
     socket.on('esp32:power_overload', (data) => {
         const loadNames = { 1: 'AC Bulb/Heater', 2: 'AC Fan' };
         const loadName = loadNames[data.load_number] || `Load ${data.load_number}`;
-        showNotification(`⚠️ OVERLOAD! ${loadName}: ${data.power.toFixed(1)}W > ${data.threshold}W - Auto OFF!`, 'error');
+        showNotification(` OVERLOAD! ${loadName}: ${data.power.toFixed(1)}W > ${data.threshold}W - Auto OFF!`, 'error');
         updateRelayStatus(data.load_number, false);
     });
 }
@@ -406,7 +406,7 @@ let lastTempControlState = null;
 
 // Temperature-based automatic load control
 // Logic: temp >= 30°C → Fan ON (Load 2), Bulb/Heater OFF (Load 1)
-//        temp < 30°C → Bulb/Heater ON (Load 1), Fan OFF (Load 2)
+// temp < 30°C → Bulb/Heater ON (Load 1), Fan OFF (Load 2)
 function applyTemperatureControl(temperature) {
     const highTemp = temperature >= 30;
     const stateKey = highTemp ? 'fan_on' : 'bulb_on';
@@ -420,13 +420,13 @@ function applyTemperatureControl(temperature) {
     
     if (highTemp) {
         // High temperature: Fan ON, Bulb/Heater OFF
-        console.log(`🌡️ Temp ${temperature}°C >= 30°C - Fan ON, Bulb/Heater OFF`);
+        console.log(` Temp ${temperature}°C >= 30°C - Fan ON, Bulb/Heater OFF`);
         showNotification(`Auto: Temp ${temperature.toFixed(1)}°C ≥ 30°C - Fan ON, Bulb OFF`, 'info');
         controlRelay(1, false); // Bulb/Heater OFF
         setTimeout(() => controlRelay(2, true), 300); // Fan ON
     } else {
         // Low temperature: Bulb/Heater ON, Fan OFF
-        console.log(`🌡️ Temp ${temperature}°C < 30°C - Bulb/Heater ON, Fan OFF`);
+        console.log(` Temp ${temperature}°C < 30°C - Bulb/Heater ON, Fan OFF`);
         showNotification(`Auto: Temp ${temperature.toFixed(1)}°C < 30°C - Bulb ON, Fan OFF`, 'info');
         controlRelay(2, false); // Fan OFF
         setTimeout(() => controlRelay(1, true), 300); // Bulb/Heater ON

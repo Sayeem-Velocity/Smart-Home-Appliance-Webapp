@@ -51,15 +51,15 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 
 // Auth Routes
 app.post('/api/auth/login', (req, res) => {
-    console.log('📝 Login attempt:', req.body.username);
+    console.log(' Login attempt:', req.body.username);
     const { username, password } = req.body;
     const result = auth.login(username, password);
     
     if (result.success) {
-        console.log('✅ Login successful:', username);
+        console.log(' Login successful:', username);
         res.json(result);
     } else {
-        console.log('❌ Login failed:', username);
+        console.log(' Login failed:', username);
         res.status(401).json(result);
     }
 });
@@ -67,7 +67,7 @@ app.post('/api/auth/login', (req, res) => {
 app.post('/api/auth/logout', (req, res) => {
     const token = req.headers.authorization?.replace('Bearer ', '');
     const success = auth.logout(token);
-    console.log('🚪 Logout:', success ? 'Session cleared' : 'No session found');
+    console.log(' Logout:', success ? 'Session cleared' : 'No session found');
     res.json({ success: true, message: 'Logged out successfully' });
 });
 
@@ -280,11 +280,11 @@ app.post('/api/ai/chat', auth.authMiddleware, async (req, res) => {
         const { message, preferredModel } = req.body;
         const username = req.user.username; // Get username from auth
         
-        console.log(`💬 Chat from ${username}: "${message.substring(0, 50)}${message.length > 50 ? '...' : ''}"${preferredModel ? ` [model: ${preferredModel}]` : ''}`);         
+        console.log(` Chat from ${username}: "${message.substring(0, 50)}${message.length > 50 ? '...' : ''}"${preferredModel ? ` [model: ${preferredModel}]` : ''}`); 
         const response = await aiService.chat(message, username, preferredModel);
         res.json(response);
     } catch (error) {
-        console.error('❌ Chat error:', error.message);
+        console.error(' Chat error:', error.message);
         res.status(500).json({ 
             success: false,
             error: error.message,
@@ -298,7 +298,7 @@ app.post('/api/ai/model', auth.authMiddleware, (req, res) => {
     try {
         const { model } = req.body;
         const username = req.user.username;
-        console.log(`🔄 ${username} switched AI model to: ${model}`);
+        console.log(` ${username} switched AI model to: ${model}`);
         res.json({ success: true, model, message: `Switched to ${model === 'cerebras' ? 'OpenAI (GPT-OSS 120B)' : 'Gemini 2.5 Flash'}` });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -406,7 +406,7 @@ app.post('/api/esp32/threshold', async (req, res) => {
         // Send threshold update to ESP32 via MQTT
         mqttService.publishThresholdUpdate(load_number, power_threshold);
         
-        console.log(`⚙️ Threshold update sent: Load ${load_number} = ${power_threshold}W`);
+        console.log(` Threshold update sent: Load ${load_number} = ${power_threshold}W`);
         
         res.json({
             success: true,
@@ -583,7 +583,7 @@ app.get('/api/database/stats', async (req, res) => {
 // =====================================================
 
 io.on('connection', (socket) => {
-    console.log('🔌 Client connected:', socket.id);
+    console.log(' Client connected:', socket.id);
 
     // Validate token on connection
     socket.on('authenticate', (token) => {
@@ -591,7 +591,7 @@ io.on('connection', (socket) => {
         if (session) {
             socket.user = session;
             socket.emit('authenticated', { success: true });
-            console.log(`✅ Socket authenticated: ${session.username}`);
+            console.log(` Socket authenticated: ${session.username}`);
         } else {
             socket.emit('authenticated', { success: false });
         }
@@ -599,7 +599,7 @@ io.on('connection', (socket) => {
 
     // Handle relay control from dashboard
     socket.on('esp32:relay_control', (data) => {
-        console.log('🔌 Relay control received:', data);
+        console.log(' Relay control received:', data);
         const loadNumber = data.load_id || data.loadId;
         const state = data.state;
         
@@ -613,9 +613,9 @@ io.on('connection', (socket) => {
                 state: state
             });
             
-            console.log(`✅ Relay ${loadNumber} control sent: ${state ? 'ON' : 'OFF'}`);
+            console.log(` Relay ${loadNumber} control sent: ${state ? 'ON' : 'OFF'}`);
         } else {
-            console.log('❌ Invalid relay control data:', data);
+            console.log(' Invalid relay control data:', data);
         }
     });
 
@@ -623,7 +623,7 @@ io.on('connection', (socket) => {
 
     // Handle mode control from dashboard (Auto/Manual)
     socket.on('esp32:mode_control', (data) => {
-        console.log('🎛️ Mode control received:', data);
+        console.log(' Mode control received:', data);
         const mode = data.mode; // 'auto' or 'manual'
         
         if (mode === 'auto' || mode === 'manual') {
@@ -633,12 +633,12 @@ io.on('connection', (socket) => {
             // Echo back to all clients
             io.emit('esp32:mode_changed', { mode: mode });
             
-            console.log(`✅ Control mode changed to: ${mode}`);
+            console.log(` Control mode changed to: ${mode}`);
         }
     });
 
     socket.on('disconnect', () => {
-        console.log('🔌 Client disconnected:', socket.id);
+        console.log(' Client disconnected:', socket.id);
     });
 });
 
@@ -649,7 +649,7 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, async () => {
-    console.log(`\n🚀 Server running on http://localhost:${PORT}`);
+    console.log(`\n Server running on http://localhost:${PORT}`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     // Initialize MQTT broker for ESP32 communication
@@ -657,7 +657,7 @@ server.listen(PORT, async () => {
         await mqttService.init(io);
         mqttService.io = io; // Set Socket.IO instance for real-time updates
     } catch (error) {
-        console.error('⚠️  MQTT broker failed to start:', error.message);
+        console.error(' MQTT broker failed to start:', error.message);
     }
     
     // Initialize AI and connect Socket.IO for real-time alerts
@@ -666,21 +666,21 @@ server.listen(PORT, async () => {
     
     // DISABLED SIMULATOR - Using real ESP32 MQTT data instead
     // simulator.startSimulation((data) => {
-    //     io.emit('telemetryUpdate', data);
-    //     ...
+    // io.emit('telemetryUpdate', data);
+    // ...
     // });
 
-    console.log('📡 Waiting for ESP32 MQTT data...');
+    console.log(' Waiting for ESP32 MQTT data...');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('\n📝 Demo Credentials:');
-    console.log('   User:  demo / demo123');
-    console.log('   Admin: admin / admin123');
+    console.log('\n Demo Credentials:');
+    console.log(' User: demo / demo123');
+    console.log(' Admin: admin / admin123');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 });
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
-    console.log('\n🛑 Shutting down...');
+    console.log('\n Shutting down...');
     // simulator.stopSimulation(); // Disabled
     await mqttService.shutdown();
     server.close();

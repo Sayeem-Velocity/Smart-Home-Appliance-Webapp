@@ -1113,6 +1113,16 @@ body {
     pointer-events: none;
 }
 
+/* Auto Mode - Dim both ON/OFF buttons */
+.control-btn.auto-dim {
+    opacity: 0.25;
+    cursor: not-allowed;
+    pointer-events: none;
+    filter: grayscale(40%);
+    transform: none !important;
+    box-shadow: none !important;
+}
+
 /* ============================================
    Inactive Load Card Styles
    ============================================ */

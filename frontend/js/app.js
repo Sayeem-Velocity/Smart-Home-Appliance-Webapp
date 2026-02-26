@@ -3,7 +3,7 @@
  * Handles UI interactions, WebSocket, and data display
  */
 
-console.log('🚀 Smart Load Dashboard JS loaded');
+console.log(' Smart Load Dashboard JS loaded');
 
 // =====================================================
 // Configuration & State
@@ -84,20 +84,20 @@ function initializeWebSocket() {
 
     // MQTT Status Updates
     socket.on('mqtt:status', (data) => {
-        console.log('📡 MQTT Status:', data);
+        console.log(' MQTT Status:', data);
         updateMQTTStatus(data.connected, data.clientId);
     });
 
     // MQTT Client Connected
     socket.on('mqtt:client_connected', (data) => {
-        console.log('📡 MQTT Client Connected:', data.clientId);
+        console.log(' MQTT Client Connected:', data.clientId);
         updateMQTTStatus(true, data.clientId);
         showNotification(`ESP32 connected: ${data.clientId}`, 'success');
     });
 
     // MQTT Client Disconnected
     socket.on('mqtt:client_disconnected', (data) => {
-        console.log('📡 MQTT Client Disconnected:', data.clientId);
+        console.log(' MQTT Client Disconnected:', data.clientId);
         updateMQTTStatus(false);
     });
 
@@ -129,13 +129,13 @@ function initializeWebSocket() {
 
     // AI Real-time Alerts
     socket.on('ai-alert', (data) => {
-        console.log('🚨 AI Alert:', data);
+        console.log(' AI Alert:', data);
         showAIAlert(data);
     });
 
     // AI Proactive Insights
     socket.on('ai-insight', (data) => {
-        console.log('💡 AI Insight:', data);
+        console.log(' AI Insight:', data);
         showAIInsight(data);
     });
 
@@ -146,19 +146,19 @@ function initializeWebSocket() {
 
     // AI Decision Made
     socket.on('ai-decision', (data) => {
-        console.log('🤖 AI Decision:', data);
+        console.log(' AI Decision:', data);
         showAIDecision(data);
     });
 
     // AI Anomaly Actions
     socket.on('ai-anomaly-action', (data) => {
-        console.log('⚠️ AI Anomaly Action:', data);
+        console.log(' AI Anomaly Action:', data);
         showAnomalyAlert(data);
     });
 
     // AI Control Action
     socket.on('ai-control-action', (data) => {
-        console.log('🎮 AI Control Action:', data);
+        console.log(' AI Control Action:', data);
         showAIActionToast(`${data.action.toUpperCase()} - ${data.reason}`);
     });
 }
@@ -191,11 +191,11 @@ function showAIDecision(data) {
         // Clean up error messages - extract just the important part
         if (typeof summary === 'string' && summary.includes('Error:')) {
             if (summary.includes('429') || summary.includes('quota') || summary.includes('rate')) {
-                summary = '⏳ Rate limited - Please wait a moment before trying again';
+                summary = ' Rate limited - Please wait a moment before trying again';
             } else if (summary.includes('googleapis.com')) {
                 // Extract just the error type
                 const match = summary.match(/\[(\d+)\s*([^\]]+)\]/);
-                summary = match ? `⚠️ API Error: ${match[2]}` : '⚠️ AI service temporarily unavailable';
+                summary = match ? ` API Error: ${match[2]}` : ' AI service temporarily unavailable';
             }
         }
         
@@ -203,7 +203,7 @@ function showAIDecision(data) {
         if (data.decision?.actions && data.decision.actions.length > 0) {
             html += '<ul style="margin-top: 0.5rem; padding-left: 1.2rem;">';
             data.decision.actions.forEach(a => {
-                const icon = a.action === 'on' ? '🟢' : '🔴';
+                const icon = a.action === 'on' ? '' : '';
                 html += `<li>${icon} Load ${a.loadId}: ${a.action.toUpperCase()} - ${a.reason}</li>`;
             });
             html += '</ul>';
@@ -289,7 +289,7 @@ function showAIInsight(data) {
     if (chatMessages) {
         const insightHtml = `
             <div class="chat-message assistant ai-insight" style="border-left: 3px solid #10b981; background: #ecfdf5;">
-                <div class="message-avatar">💡</div>
+                <div class="message-avatar"></div>
                 <div class="message-content">
                     <strong>AI Insight:</strong><br>
                     ${data.message}
@@ -302,7 +302,7 @@ function showAIInsight(data) {
     }
     
     // Also show as toast notification
-    showNotification(`💡 ${data.message}`, 'info');
+    showNotification(` ${data.message}`, 'info');
 }
 
 function updateConnectionStatus(connected) {
@@ -404,7 +404,7 @@ async function loadInitialData() {
         ];
         
         // Render load cards immediately
-        console.log('✅ Rendering 2 load cards');
+        console.log(' Rendering 2 load cards');
         renderLoadCards(defaultLoads);
 
         // Try to load ESP32 status for DHT11
@@ -478,7 +478,7 @@ async function clearChatHistory() {
             const messagesEl = document.getElementById('chatMessages');
             messagesEl.innerHTML = `
                 <div class="chat-message bot">
-                    <p>👋 Hi! I'm your Smart Energy AI Assistant. Ask me anything about your energy usage, devices, or get energy-saving tips!</p>
+                    <p> Hi! I'm your Smart Energy AI Assistant. Ask me anything about your energy usage, devices, or get energy-saving tips!</p>
                 </div>
             `;
             showNotification('Chat history cleared', 'success');
@@ -857,8 +857,8 @@ function renderAlerts(alerts) {
     list.innerHTML = alerts.map(alert => {
         const icon = alert.alert_type === 'critical' ? 'fa-exclamation-circle' : 
                      alert.alert_type === 'warning' ? 'fa-exclamation-triangle' : 'fa-info-circle';
-        const iconEmoji = alert.alert_type === 'critical' ? '🚨' : 
-                          alert.alert_type === 'warning' ? '⚠️' : 'ℹ️';
+        const iconEmoji = alert.alert_type === 'critical' ? '' : 
+                          alert.alert_type === 'warning' ? '' : '';
         const time = new Date(alert.created_at);
         const timeStr = time.toLocaleTimeString() + ', ' + time.toLocaleDateString();
         
@@ -986,7 +986,7 @@ async function sendChatMessage() {
         if (response.authError && !justLoggedIn) {
             const errorMsg = document.createElement('div');
             errorMsg.className = 'chat-message bot';
-            errorMsg.innerHTML = '<p>⚠️ Session expired. Please login again.</p>';
+            errorMsg.innerHTML = '<p> Session expired. Please login again.</p>';
             messagesEl.appendChild(errorMsg);
             return;
         }
@@ -998,17 +998,17 @@ async function sendChatMessage() {
         if (response.success) {
             botMsg.innerHTML = `<p>${formatAIResponse(response.response)}</p>`;
             if (response.agents) {
-                botMsg.innerHTML += `<div class="chat-meta" style="font-size: 0.7em; color: #888; margin-top: 5px;">🤖 Agents: ${response.agents.join(', ')}</div>`;
+                botMsg.innerHTML += `<div class="chat-meta" style="font-size: 0.7em; color: #888; margin-top: 5px;"> Agents: ${response.agents.join(', ')}</div>`;
             }
         } else {
-            botMsg.innerHTML = `<p>⚠️ ${response.error || 'Unable to get response. Please try again.'}</p>`;
+            botMsg.innerHTML = `<p> ${response.error || 'Unable to get response. Please try again.'}</p>`;
         }
         messagesEl.appendChild(botMsg);
     } catch (error) {
         loadingMsg.remove();
         const errorMsg = document.createElement('div');
         errorMsg.className = 'chat-message bot';
-        errorMsg.innerHTML = '<p>⚠️ Connection error. Please check if the server is running.</p>';
+        errorMsg.innerHTML = '<p> Connection error. Please check if the server is running.</p>';
         messagesEl.appendChild(errorMsg);
     }
 
@@ -1046,7 +1046,7 @@ function showNotification(message, type = 'info') {
 // =====================================================
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Dashboard initializing...');
+    console.log(' Dashboard initializing...');
     
     // Update user info in header
     if (currentUser) {
@@ -1139,7 +1139,7 @@ async function toggleAIControl() {
             const msgHtml = `
                 <div class="chat-message assistant" style="border-left: 3px solid #6366f1; background: #1e1b4b;">
                     <div class="message-content">
-                        <strong>🤖 AI Control ${aiControlEnabled ? 'Enabled' : 'Disabled'}</strong><br>
+                        <strong> AI Control ${aiControlEnabled ? 'Enabled' : 'Disabled'}</strong><br>
                         ${response.message || (aiControlEnabled ? 'I am now in control of all devices. I will make smart decisions to optimize energy usage and ensure safety.' : 'Manual control restored. You can now control devices manually.')}
                     </div>
                 </div>
@@ -1225,11 +1225,11 @@ let esp32Data = {
 function setupESP32SocketListeners() {
     if (!socket) return;
     
-    console.log('📡 Setting up ESP32 socket listeners...');
+    console.log(' Setting up ESP32 socket listeners...');
     
     // ESP32 Load updates
     socket.on('esp32:load_update', function(data) {
-        console.log('📊 ESP32 Load Update:', data);
+        console.log(' ESP32 Load Update:', data);
         
         // Update the electrical load card
         const loadId = data.load_number;
@@ -1275,14 +1275,14 @@ function setupESP32SocketListeners() {
     
     // ESP32 DHT11 data
     socket.on('esp32:dht11_update', function(data) {
-        console.log('🌡️ ESP32 DHT11 Update:', data);
+        console.log(' ESP32 DHT11 Update:', data);
         updateESP32DHT11Display(data);
         updateESP32LastUpdate();
     });
     
     // ESP32 relay state changes
     socket.on('esp32:relay_status', function(data) {
-        console.log('🔌 ESP32 Relay Status:', data);
+        console.log(' ESP32 Relay Status:', data);
         const card = document.getElementById(`load-${data.load_number}`);
         if (card) {
             card.className = `load-card ${data.relay_state ? '' : 'off'}`;
@@ -1295,7 +1295,7 @@ function setupESP32SocketListeners() {
         }
     });
     
-    console.log('✅ ESP32 socket listeners ready');
+    console.log(' ESP32 socket listeners ready');
 }
 
 function updateSummaryCards() {
@@ -1353,7 +1353,7 @@ function updateESP32LastUpdate() {
 
 async function toggleLoad(loadId, turnOn) {
     try {
-        console.log(`🔌 Toggling Load ${loadId} to ${turnOn ? 'ON' : 'OFF'}`);
+        console.log(` Toggling Load ${loadId} to ${turnOn ? 'ON' : 'OFF'}`);
         
         const response = await apiCall(`/api/loads/${loadId}/control`, {
             method: 'POST',

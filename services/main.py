@@ -23,17 +23,17 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Application lifespan events"""
     # Startup
-    logger.info(f"🚀 Starting {settings.app_name} v{settings.app_version}")
+    logger.info(f" Starting {settings.app_name} v{settings.app_version}")
     
     if gemini_service.initialized:
-        logger.info("✅ Gemini AI service ready")
+        logger.info(" Gemini AI service ready")
     else:
-        logger.warning("⚠️ Gemini AI not initialized - using fallback responses")
+        logger.warning(" Gemini AI not initialized - using fallback responses")
     
     yield
     
     # Shutdown
-    logger.info("👋 Shutting down AI service")
+    logger.info(" Shutting down AI service")
 
 
 # Create FastAPI application
@@ -46,10 +46,10 @@ app = FastAPI(
     AI-powered assistant for the Smart Load Monitoring Dashboard.
     
     ### Features
-    - 💬 **Chat**: Interactive AI chat about your electrical loads
-    - 🔍 **Analysis**: Anomaly detection and load analysis
-    - 📊 **Insights**: Energy usage insights and recommendations
-    - ⚡ **Control**: AI-powered control recommendations
+    - **Chat**: Interactive AI chat about your electrical loads
+    - **Analysis**: Anomaly detection and load analysis
+    - **Insights**: Energy usage insights and recommendations
+    - **Control**: AI-powered control recommendations
     
     ### Authentication
     Include your token in the `Authorization` header:

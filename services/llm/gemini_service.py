@@ -35,7 +35,7 @@ class GeminiService:
         if not self.api_key:
             logger.warning("No Gemini API key found")
             if self.cerebras_api_key:
-                logger.info("✅ Cerebras AI available as primary provider")
+                logger.info(" Cerebras AI available as primary provider")
                 self.current_provider = 'cerebras'
                 self.initialized = True
                 return
@@ -66,14 +66,14 @@ class GeminiService:
 
             self.initialized = True
             self.current_provider = 'gemini'
-            logger.info("✅ Gemini service initialized with gemini-2.5-flash")
+            logger.info(" Gemini service initialized with gemini-2.5-flash")
             if self.cerebras_api_key:
-                logger.info(f"✅ Cerebras AI configured as fallback (model: {self.cerebras_model})")
+                logger.info(f" Cerebras AI configured as fallback (model: {self.cerebras_model})")
 
         except Exception as e:
-            logger.error(f"❌ Failed to initialize Gemini service: {e}")
+            logger.error(f" Failed to initialize Gemini service: {e}")
             if self.cerebras_api_key:
-                logger.info("✅ Falling back to Cerebras AI")
+                logger.info(" Falling back to Cerebras AI")
                 self.current_provider = 'cerebras'
                 self.initialized = True
             else:
@@ -223,7 +223,7 @@ SYSTEM CONTEXT:
 
 Identify any:
 1. Unusual voltage/current patterns
-2. Power consumption anomalies  
+2. Power consumption anomalies 
 3. Potential safety concerns
 4. Efficiency issues
 5. Maintenance recommendations
@@ -470,7 +470,7 @@ Use a conversational tone like you're talking to a homeowner."""
 {chr(10).join(load_status) if load_status else "No load data available"}
 
 ### Active Alerts
-{f"⚠️ {len(alerts)} active alert(s)" if alerts else "✅ No active alerts"}
+{f" {len(alerts)} active alert(s)" if alerts else " No active alerts"}
 
 ### Summary
 The system is operating {'normally' if not alerts else 'with some alerts that need attention'}.
@@ -497,7 +497,7 @@ Need help with a specific alert?"""
             else:
                 return """## Alert Status
 
-✅ **No active alerts!**
+ **No active alerts!**
 
 Your system is operating normally. All loads are within expected parameters.
 
@@ -581,7 +581,7 @@ How can I assist you today?"""
         return f"""## Daily Energy Summary
 
 Today's energy data has been recorded. 
-{"⚠️ " + str(len(alerts_data)) + " alert(s) were logged today." if alerts_data else "✅ No significant issues today."}
+{" " + str(len(alerts_data)) + " alert(s) were logged today." if alerts_data else " No significant issues today."}
 
 **Tip**: Consider scheduling high-power devices during off-peak hours to reduce costs.
 

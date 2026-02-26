@@ -1,45 +1,46 @@
-# Smart Home Dashboard - Quick Start Commands
-# Copy and paste these commands in PowerShell to run the app
+# ============================================
+# Smart Load Dashboard - Run Application
+# ============================================
 
-# ============================================
-# OPTION 1: Run Everything (Recommended)
-# ============================================
-# Kill any existing Node processes and start server
-taskkill /F /IM node.exe 2>$null; Start-Sleep -Seconds 1; cd "D:\chatbots\Dashboard UI with AI"; node backend/server.js
+Write-Host ""
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host "  Smart Load Dashboard - Starting App" -ForegroundColor Cyan
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host ""
 
-# ============================================
-# OPTION 2: Kill Port 3000 Only
-# ============================================
-# Use this if you need to free port 3000
-$p = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue; if ($p) { Stop-Process -Id $p.OwningProcess -Force; Write-Host "Killed process on port 3000" } else { Write-Host "Port 3000 is free" }
+# Set working directory
+Set-Location $PSScriptRoot
 
-# ============================================
-# OPTION 3: Start Server (Clean)
-# ============================================
-# Start server without killing processes
-cd "D:\chatbots\Dashboard UI with AI"; node backend/server.js
+# Kill any existing node processes on port 3000
+Write-Host "[1/3] Stopping any existing processes..." -ForegroundColor Yellow
+$existing = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue
+if ($existing) {
+    $existing | ForEach-Object {
+        Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
+    }
+    Start-Sleep -Seconds 2
+    Write-Host "  Cleared port 3000" -ForegroundColor Green
+} else {
+    Write-Host "  Port 3000 is free" -ForegroundColor Green
+}
 
-# ============================================
-# OPTION 4: Initialize Database
-# ============================================
-# Run this to setup database tables
-cd "D:\chatbots\Dashboard UI with AI"; node database/init.js
+# Check if node_modules exists
+Write-Host "[2/3] Checking dependencies..." -ForegroundColor Yellow
+if (-not (Test-Path "node_modules")) {
+    Write-Host "  Installing npm packages..." -ForegroundColor Yellow
+    npm install
+    Write-Host "  Dependencies installed" -ForegroundColor Green
+} else {
+    Write-Host "  Dependencies OK" -ForegroundColor Green
+}
 
-# ============================================
-# OPTION 5: Install Dependencies
-# ============================================
-# Run this if you need to install npm packages
-cd "D:\chatbots\Dashboard UI with AI"; npm install
+# Start the server
+Write-Host "[3/3] Starting server..." -ForegroundColor Yellow
+Write-Host ""
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host "  Server starting on http://localhost:3000" -ForegroundColor Green
+Write-Host "  Press Ctrl+C to stop" -ForegroundColor Gray
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host ""
 
-# ============================================
-# OPTION 6: Background Mode (Run in Background)
-# ============================================
-# Start server in background (won't block terminal)
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd 'D:\chatbots\Dashboard UI with AI'; node backend/server.js"
-
-# ============================================
-# After running, open browser to:
-# http://localhost:3000
-# ============================================
-# Login: demo / demo123  OR  admin / admin123
-# ============================================
+node backend/server.js

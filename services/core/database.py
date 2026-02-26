@@ -25,9 +25,9 @@ class DatabaseManager:
                 min_size=2,
                 max_size=10
             )
-            logger.info("✅ Database connection pool created")
+            logger.info(" Database connection pool created")
         except Exception as e:
-            logger.error(f"❌ Failed to connect to database: {e}")
+            logger.error(f" Failed to connect to database: {e}")
             self.pool = None
 
     async def disconnect(self):

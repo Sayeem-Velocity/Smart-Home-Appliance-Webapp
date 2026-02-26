@@ -188,7 +188,7 @@ async function refreshContext() {
 
         // Fallback if context is null (DB failure)
         if (!systemContext) {
-            console.log('⚠️ AI Service: Using minimal mock context due to data failure');
+            console.log(' AI Service: Using minimal mock context due to data failure');
             systemContext = {
                 loads: [
                     { id: 1, name: 'AC Heater', power: 0, is_on: false, voltage: 0, current: 0, energy_kwh: 0, cost: 0, threshold: 0 }, 
@@ -215,9 +215,9 @@ function initializeAI() {
     cerebrasApiKey = process.env.CEREBRAS_API_KEY;
     
     if (!apiKey || apiKey === 'your_gemini_api_key_here') {
-        console.error('❌ GEMINI_API_KEY not configured in .env');
+        console.error(' GEMINI_API_KEY not configured in .env');
         if (cerebrasApiKey) {
-            console.log('✅ Cerebras AI available as primary provider');
+            console.log(' Cerebras AI available as primary provider');
             currentProvider = 'cerebras';
         }
         return cerebrasApiKey ? true : false;
@@ -237,11 +237,11 @@ function initializeAI() {
         });
 
         currentProvider = 'gemini';
-        console.log('✅ AI Chatbot initialized with Gemini 2.5 Flash');
-        console.log('   API Key:', apiKey.substring(0, 20) + '...');
+        console.log(' AI Chatbot initialized with Gemini 2.5 Flash');
+        console.log(' API Key:', apiKey.substring(0, 20) + '...');
         
         if (cerebrasApiKey) {
-            console.log('✅ Cerebras AI configured as fallback (model: ' + CEREBRAS_MODEL + ')');
+            console.log(' Cerebras AI configured as fallback (model: ' + CEREBRAS_MODEL + ')');
         }
         
         // Start background anomaly monitoring
@@ -249,9 +249,9 @@ function initializeAI() {
         
         return true;
     } catch (error) {
-        console.error('❌ AI initialization failed:', error.message);
+        console.error(' AI initialization failed:', error.message);
         if (cerebrasApiKey) {
-            console.log('✅ Falling back to Cerebras AI');
+            console.log(' Falling back to Cerebras AI');
             currentProvider = 'cerebras';
             startBackgroundMonitoring();
             return true;
@@ -309,7 +309,7 @@ async function startBackgroundMonitoring() {
         clearInterval(monitoringInterval);
     }
     
-    console.log('   🔄 Background anomaly monitoring started');
+    console.log(' Background anomaly monitoring started');
     
     // Check for anomalies every 15 seconds
     monitoringInterval = setInterval(async () => {
@@ -322,7 +322,7 @@ async function startBackgroundMonitoring() {
             const anomalies = detectAnomalies(context);
             
             if (anomalies.length > 0 && aiControlEnabled) {
-                console.log(`⚠️ Detected ${anomalies.length} anomalies - taking action`);
+                console.log(` Detected ${anomalies.length} anomalies - taking action`);
                 await handleAnomalies(anomalies, context);
             }
         } catch (error) {
@@ -442,29 +442,28 @@ function removeEmojis(text) {
         .replace(/[\u{1F300}-\u{1F5FF}]/gu, '') // Misc Symbols and Pictographs
         .replace(/[\u{1F680}-\u{1F6FF}]/gu, '') // Transport and Map
         .replace(/[\u{1F1E0}-\u{1F1FF}]/gu, '') // Flags
-        .replace(/[\u{2600}-\u{26FF}]/gu, '')   // Misc symbols
-        .replace(/[\u{2700}-\u{27BF}]/gu, '')   // Dingbats
-        .replace(/[\u{FE00}-\u{FE0F}]/gu, '')   // Variation Selectors
+        .replace(/[\u{2600}-\u{26FF}]/gu, '') // Misc symbols
+        .replace(/[\u{2700}-\u{27BF}]/gu, '') // Dingbats
+        .replace(/[\u{FE00}-\u{FE0F}]/gu, '') // Variation Selectors
         .replace(/[\u{1F900}-\u{1F9FF}]/gu, '') // Supplemental Symbols
         .replace(/[\u{1FA00}-\u{1FA6F}]/gu, '') // Chess Symbols
         .replace(/[\u{1FA70}-\u{1FAFF}]/gu, '') // Symbols Extended-A
-        .replace(/[\u{231A}-\u{231B}]/gu, '')   // Watch, Hourglass
-        .replace(/[\u{23E9}-\u{23F3}]/gu, '')   // Various symbols
-        .replace(/[\u{23F8}-\u{23FA}]/gu, '')   // Various symbols
-        .replace(/[\u{25AA}-\u{25AB}]/gu, '')   // Squares
-        .replace(/[\u{25B6}]/gu, '')            // Play button
-        .replace(/[\u{25C0}]/gu, '')            // Reverse button
-        .replace(/[\u{25FB}-\u{25FE}]/gu, '')   // Squares
-        .replace(/[\u{2934}-\u{2935}]/gu, '')   // Arrows
-        .replace(/[\u{2B05}-\u{2B07}]/gu, '')   // Arrows
-        .replace(/[\u{2B1B}-\u{2B1C}]/gu, '')   // Squares
-        .replace(/[\u{2B50}]/gu, '')            // Star
-        .replace(/[\u{2B55}]/gu, '')            // Circle
-        .replace(/[\u{3030}]/gu, '')            // Wavy Dash
-        .replace(/[\u{303D}]/gu, '')            // Part Alternation Mark
-        .replace(/[\u{3297}]/gu, '')            // Circled Ideograph
-        .replace(/[\u{3299}]/gu, '')            // Circled Ideograph Secret
-        .replace(/[⚡🔌💡🌡️📊💰❓✅⭕🟢⚪📈💵✨🔋⏱️🏠]/g, '') // Specific common ones
+        .replace(/[\u{231A}-\u{231B}]/gu, '') // Watch, Hourglass
+        .replace(/[\u{23E9}-\u{23F3}]/gu, '') // Various symbols
+        .replace(/[\u{23F8}-\u{23FA}]/gu, '') // Various symbols
+        .replace(/[\u{25AA}-\u{25AB}]/gu, '') // Squares
+        .replace(/[\u{25B6}]/gu, '') // Play button
+        .replace(/[\u{25C0}]/gu, '') // Reverse button
+        .replace(/[\u{25FB}-\u{25FE}]/gu, '') // Squares
+        .replace(/[\u{2934}-\u{2935}]/gu, '') // Arrows
+        .replace(/[\u{2B05}-\u{2B07}]/gu, '') // Arrows
+        .replace(/[\u{2B1B}-\u{2B1C}]/gu, '') // Squares
+        .replace(/[\u{2B50}]/gu, '') // Star
+        .replace(/[\u{2B55}]/gu, '') // Circle
+        .replace(/[\u{3030}]/gu, '') // Wavy Dash
+        .replace(/[\u{303D}]/gu, '') // Part Alternation Mark
+        .replace(/[\u{3297}]/gu, '') // Circled Ideograph
+        .replace(/[\u{3299}]/gu, '') // Circled Ideograph Secret
         .trim();
 }
 
@@ -557,7 +556,7 @@ ${context.loads.map(l => `• ${l.name}: $${parseFloat(l.cost || 0).toFixed(4)}`
 }
 
 async function chat(userQuery, username = 'guest', preferredModel = null) {
-    console.log(`🧠 AI Proc: "${userQuery}" for ${username}${preferredModel ? ` [preferred: ${preferredModel}]` : ''}`);
+    console.log(` AI Proc: "${userQuery}" for ${username}${preferredModel ? ` [preferred: ${preferredModel}]` : ''}`);
     try {
         // Step 1: Get real-time data from ESP32 database tables
         const context = await refreshContext();
@@ -592,7 +591,7 @@ async function chat(userQuery, username = 'guest', preferredModel = null) {
                 parseFloat(h.avg_power) > parseFloat(max.avg_power) ? h : max, 
                 context.hourlyPattern[0]
             );
-            hourlyInfo = `\n📊 USAGE PATTERN:\n• Peak usage hour: ${peakHour.hour}:00 (${peakHour.avg_power}W avg)\n`;
+            hourlyInfo = `\n USAGE PATTERN:\n• Peak usage hour: ${peakHour.hour}:00 (${peakHour.avg_power}W avg)\n`;
         }
 
         // Step 6: Create AI agent prompt
@@ -616,7 +615,7 @@ INSTRUCTIONS:
 5. Be concise.`;
 
         const activeProvider = preferredModel || currentProvider;
-        console.log(`🧠 AI Processing with ${activeProvider === 'cerebras' ? 'Cerebras ' + CEREBRAS_MODEL : 'Gemini 2.5 Flash'}...`);
+        console.log(` AI Processing with ${activeProvider === 'cerebras' ? 'Cerebras ' + CEREBRAS_MODEL : 'Gemini 2.5 Flash'}...`);
 
         // Step 7: Call AI - with automatic provider fallback
         let agentResponse;
@@ -635,31 +634,31 @@ INSTRUCTIONS:
                     .trim();
                     
             } catch (aiError) {
-                console.error('⚠️ Gemini API Failed:', aiError.message);
+                console.error(' Gemini API Failed:', aiError.message);
                 
                 // Try Cerebras fallback for any Gemini error (429, 404, quota, etc.)
                 if (cerebrasApiKey) {
-                    console.log('🔄 Switching to Cerebras AI fallback...');
+                    console.log(' Switching to Cerebras AI fallback...');
                     try {
                         agentResponse = await callCerebrasAI(agentPrompt);
                         agentResponse = removeEmojis(agentResponse).trim();
                         usedProvider = 'cerebras';
-                        console.log('✅ Cerebras AI responded successfully');
+                        console.log(' Cerebras AI responded successfully');
                     } catch (cerebrasError) {
-                        console.error('❌ Cerebras fallback also failed:', cerebrasError.message);
+                        console.error(' Cerebras fallback also failed:', cerebrasError.message);
                         
                         // Last resort: try gemini-2.0-flash
                         if (aiError.message.includes('404') || aiError.message.includes('not found')) {
-                            console.log('🔄 Attempting fallback to gemini-2.0-flash model...');
+                            console.log(' Attempting fallback to gemini-2.0-flash model...');
                             try {
                                 const fallbackModel = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
                                 const result = await fallbackModel.generateContent(agentPrompt);
                                 agentResponse = result.response.text();
                                 agentResponse = removeEmojis(agentResponse).trim();
                                 usedProvider = 'gemini-2.0-flash';
-                                console.log('✅ Fallback to gemini-2.0-flash successful');
+                                console.log(' Fallback to gemini-2.0-flash successful');
                             } catch (fallbackError) {
-                                console.error('❌ All AI providers failed');
+                                console.error(' All AI providers failed');
                                 return generateFallbackResponse(userQuery, context, username);
                             }
                         } else {
@@ -669,16 +668,16 @@ INSTRUCTIONS:
                 } else {
                     // No Cerebras, try gemini-2.0-flash for 404 errors
                     if (aiError.message.includes('404') || aiError.message.includes('not found')) {
-                        console.log('🔄 Attempting fallback to gemini-2.0-flash model...');
+                        console.log(' Attempting fallback to gemini-2.0-flash model...');
                         try {
                             const fallbackModel = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
                             const result = await fallbackModel.generateContent(agentPrompt);
                             agentResponse = result.response.text();
                             agentResponse = removeEmojis(agentResponse).trim();
                             usedProvider = 'gemini-2.0-flash';
-                            console.log('✅ Fallback to gemini-2.0-flash successful');
+                            console.log(' Fallback to gemini-2.0-flash successful');
                         } catch (fallbackError) {
-                            console.error('❌ Fallback failed:', fallbackError.message);
+                            console.error(' Fallback failed:', fallbackError.message);
                             return generateFallbackResponse(userQuery, context, username);
                         }
                     } else {
@@ -693,9 +692,9 @@ INSTRUCTIONS:
                 agentResponse = await callCerebrasAI(agentPrompt);
                 agentResponse = removeEmojis(agentResponse).trim();
                 usedProvider = 'cerebras';
-                console.log('✅ Cerebras AI responded successfully');
+                console.log(' Cerebras AI responded successfully');
             } catch (cerebrasError) {
-                console.error('❌ Cerebras API Failed:', cerebrasError.message);
+                console.error(' Cerebras API Failed:', cerebrasError.message);
                 
                 // Try Gemini if available
                 if (model) {
@@ -705,7 +704,7 @@ INSTRUCTIONS:
                         agentResponse = removeEmojis(agentResponse).trim();
                         usedProvider = 'gemini';
                     } catch (geminiError) {
-                        console.error('❌ Gemini fallback also failed:', geminiError.message);
+                        console.error(' Gemini fallback also failed:', geminiError.message);
                         return generateFallbackResponse(userQuery, context, username);
                     }
                 } else {
@@ -729,7 +728,7 @@ INSTRUCTIONS:
             chatHistory.shift();
         }
 
-        console.log(`✅ AI Agent responded successfully (${usedProvider})`);
+        console.log(` AI Agent responded successfully (${usedProvider})`);
 
         return {
             success: true,
@@ -740,7 +739,7 @@ INSTRUCTIONS:
         };
 
     } catch (error) {
-        console.error('❌ AI Agent error:', error.message);
+        console.error(' AI Agent error:', error.message);
         
         // Always try fallback response for any error
         console.error('Chat error details:', error);
@@ -960,17 +959,17 @@ async function generateDailySummary() {
     }
 
     const summary = `
-📊 **Daily Energy Summary**
+ **Daily Energy Summary**
 
-🔌 **Devices:** ${context.summary.activeLoads}/${context.summary.totalLoads} active
-⚡ **Current Power:** ${context.summary.totalPowerW}W
-📈 **Energy Today:** ${context.summary.totalEnergyKWh} kWh
-💰 **Cost Today:** $${context.summary.totalCost}
+ **Devices:** ${context.summary.activeLoads}/${context.summary.totalLoads} active
+ **Current Power:** ${context.summary.totalPowerW}W
+ **Energy Today:** ${context.summary.totalEnergyKWh} kWh
+ **Cost Today:** $${context.summary.totalCost}
 
 **Device Status:**
-${context.loads.map(l => `- ${l.name}: ${l.is_on ? '🟢 ON' : '🔴 OFF'} (${parseFloat(l.power || 0).toFixed(1)}W)`).join('\n')}
+${context.loads.map(l => `- ${l.name}: ${l.is_on ? ' ON' : ' OFF'} (${parseFloat(l.power || 0).toFixed(1)}W)`).join('\n')}
 
-${context.alerts.length > 0 ? `\n⚠️ **Active Alerts:** ${context.alerts.length}` : '✅ No active alerts'}
+${context.alerts.length > 0 ? `\n **Active Alerts:** ${context.alerts.length}` : ' No active alerts'}
 `;
     return summary;
 }
@@ -979,7 +978,7 @@ async function setAIControlMode(enabled) {
     aiControlEnabled = enabled;
     
     if (enabled) {
-        console.log('🤖 AI Control Mode: ENABLED - Anomaly detection active');
+        console.log(' AI Control Mode: ENABLED - Anomaly detection active');
         
         // Trigger immediate anomaly check
         const context = await refreshContext();
@@ -1000,7 +999,7 @@ async function setAIControlMode(enabled) {
             message: 'AI control enabled. Monitoring for anomalies and optimizing energy usage.' 
         };
     } else {
-        console.log('🤖 AI Control Mode: DISABLED');
+        console.log(' AI Control Mode: DISABLED');
         return { 
             enabled: false, 
             message: 'AI control disabled. Manual control restored.' 
@@ -1013,7 +1012,7 @@ function getAIControlStatus() {
 }
 
 async function triggerAIDecision() {
-    console.log('🤖 AI Decision: Starting autonomous control analysis...');
+    console.log(' AI Decision: Starting autonomous control analysis...');
     
     // Step 1: Get real-time database context
     const context = await refreshContext();
@@ -1023,7 +1022,7 @@ async function triggerAIDecision() {
 
     // Step 2: Check if AI model is available
     if (!model && !cerebrasApiKey) {
-        console.log('⚠️ No AI providers available, using fallback rules');
+        console.log(' No AI providers available, using fallback rules');
         return await fallbackAIDecision(context);
     }
 
@@ -1048,14 +1047,14 @@ Device ${load.id}: ${load.device_name} (${load.device_type})
         }).join('\n');
 
         const alertInfo = context.alerts.length > 0 
-            ? `\n⚠️ ACTIVE ALERTS (${context.alerts.length}):\n` + context.alerts.map(a => 
-                `  - ${a.load_name}: ${a.message} (${a.alert_type})`
+            ? `\n ACTIVE ALERTS (${context.alerts.length}):\n` + context.alerts.map(a => 
+                ` - ${a.load_name}: ${a.message} (${a.alert_type})`
               ).join('\n')
             : '';
 
         const aiPrompt = `You are an intelligent energy management AI agent. Analyze the current state of all devices and decide which actions to take for optimal energy efficiency, safety, and cost savings.
 
-📊 CURRENT SYSTEM STATE:
+ CURRENT SYSTEM STATE:
 Time: ${currentTime.toLocaleString()} (${timeOfDay})
 Active Devices: ${context.summary.active_count} / ${context.summary.total_count}
 Total Power: ${context.summary.total_power}W
@@ -1063,10 +1062,10 @@ Total Energy: ${context.summary.total_energy} kWh
 Total Cost: $${context.summary.total_cost}
 ${alertInfo}
 
-🔌 DEVICE STATUS:
+ DEVICE STATUS:
 ${deviceDetails}
 
-🎯 YOUR TASK:
+ YOUR TASK:
 Analyze each device and decide whether to:
 1. Turn ON a device (if it should be running)
 2. Turn OFF a device (if it's wasting energy, unsafe, or unnecessary)
@@ -1079,7 +1078,7 @@ Consider:
 - Cost optimization - minimize electricity costs
 - Alerts - address any critical issues
 
-🔧 RESPOND WITH VALID JSON ONLY:
+ RESPOND WITH VALID JSON ONLY:
 {
   "summary": "Brief explanation of decisions",
   "actions": [
@@ -1094,7 +1093,7 @@ Consider:
 IMPORTANT: Only include devices that need action (on/off). Skip devices that should "keep" their current state.`;
 
         // Step 4: Call AI for autonomous decision (Gemini primary, Cerebras fallback)
-        console.log('📡 Calling AI for autonomous control decision...');
+        console.log(' Calling AI for autonomous control decision...');
         let responseText;
         let decisionProvider = 'gemini';
         
@@ -1103,22 +1102,22 @@ IMPORTANT: Only include devices that need action (on/off). Skip devices that sho
                 const result = await model.generateContent(aiPrompt);
                 responseText = result.response.text();
             } catch (geminiError) {
-                console.error('⚠️ Gemini AI Decision failed:', geminiError.message);
+                console.error(' Gemini AI Decision failed:', geminiError.message);
                 
                 // Fallback to Cerebras
                 if (cerebrasApiKey) {
-                    console.log('🔄 Falling back to Cerebras for AI decision...');
+                    console.log(' Falling back to Cerebras for AI decision...');
                     try {
                         responseText = await callCerebrasAI(aiPrompt, 'You are an intelligent energy management AI agent. Respond with valid JSON only.');
                         decisionProvider = 'cerebras';
-                        console.log('✅ Cerebras AI decision successful');
+                        console.log(' Cerebras AI decision successful');
                     } catch (cerebrasError) {
-                        console.error('❌ Cerebras decision also failed:', cerebrasError.message);
+                        console.error(' Cerebras decision also failed:', cerebrasError.message);
                         return await fallbackAIDecision(context);
                     }
                 } else {
                     if (geminiError.message?.includes('quota') || geminiError.message?.includes('429')) {
-                        console.log('⚠️ AI quota exceeded, using fallback rules');
+                        console.log(' AI quota exceeded, using fallback rules');
                     }
                     return await fallbackAIDecision(context);
                 }
@@ -1127,9 +1126,9 @@ IMPORTANT: Only include devices that need action (on/off). Skip devices that sho
             try {
                 responseText = await callCerebrasAI(aiPrompt, 'You are an intelligent energy management AI agent. Respond with valid JSON only.');
                 decisionProvider = 'cerebras';
-                console.log('✅ Cerebras AI decision successful');
+                console.log(' Cerebras AI decision successful');
             } catch (cerebrasError) {
-                console.error('❌ Cerebras AI decision failed:', cerebrasError.message);
+                console.error(' Cerebras AI decision failed:', cerebrasError.message);
                 return await fallbackAIDecision(context);
             }
         } else {
@@ -1146,7 +1145,7 @@ IMPORTANT: Only include devices that need action (on/off). Skip devices that sho
             const jsonText = jsonMatch[1] || responseText;
             aiDecision = JSON.parse(jsonText.trim());
         } catch (parseError) {
-            console.error('❌ Failed to parse AI response:', parseError.message);
+            console.error(' Failed to parse AI response:', parseError.message);
             console.log('Raw response:', responseText);
             return { 
                 success: false, 
@@ -1172,7 +1171,7 @@ IMPORTANT: Only include devices that need action (on/off). Skip devices that sho
                         success: true
                     });
                     
-                    console.log(`✅ AI Action: Load ${action.loadId} → ${action.action.toUpperCase()} - ${action.reason}`);
+                    console.log(` AI Action: Load ${action.loadId} → ${action.action.toUpperCase()} - ${action.reason}`);
                     
                     // Emit real-time update via Socket.IO
                     if (ioRef) {
@@ -1184,7 +1183,7 @@ IMPORTANT: Only include devices that need action (on/off). Skip devices that sho
                         });
                     }
                 } catch (execError) {
-                    console.error(`❌ Failed to execute action for Load ${action.loadId}:`, execError.message);
+                    console.error(` Failed to execute action for Load ${action.loadId}:`, execError.message);
                     executedActions.push({
                         loadId: action.loadId,
                         action: action.action,
@@ -1210,11 +1209,11 @@ IMPORTANT: Only include devices that need action (on/off). Skip devices that sho
         };
 
     } catch (error) {
-        console.error('❌ AI Decision Error:', error.message);
+        console.error(' AI Decision Error:', error.message);
         
         // Fallback to Cerebras or rule-based on errors
         if (cerebrasApiKey && currentProvider === 'gemini') {
-            console.log('🔄 AI Decision error, trying Cerebras...');
+            console.log(' AI Decision error, trying Cerebras...');
             try {
                 // Rebuild the prompt for Cerebras
                 const deviceDetails = context.loads.map(load => {
@@ -1255,7 +1254,7 @@ IMPORTANT: Only include devices that need action (on/off). Skip devices that sho
                     provider: 'cerebras'
                 };
             } catch (cerebrasError) {
-                console.error('❌ Cerebras fallback decision also failed:', cerebrasError.message);
+                console.error(' Cerebras fallback decision also failed:', cerebrasError.message);
             }
         }
         
@@ -1266,7 +1265,7 @@ IMPORTANT: Only include devices that need action (on/off). Skip devices that sho
 
 // Fallback rule-based decision (when AI is unavailable)
 async function fallbackAIDecision(context) {
-    console.log('🔧 Using fallback rule-based decisions');
+    console.log(' Using fallback rule-based decisions');
     const actions = [];
     const hour = new Date().getHours();
 
@@ -1341,7 +1340,7 @@ async function fallbackAIDecision(context) {
 
 function setSocketIO(io) {
     ioRef = io;
-    console.log('   🔌 Socket.IO connected for real-time alerts');
+    console.log(' Socket.IO connected for real-time alerts');
 }
 
 // ============================================================================

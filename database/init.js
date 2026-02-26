@@ -17,7 +17,7 @@ const pool = new Pool({
 });
 
 async function initDatabase() {
-    console.log('🔧 Initializing database...');
+    console.log(' Initializing database...');
     
     try {
         // Read and execute schema
@@ -25,7 +25,7 @@ async function initDatabase() {
         const schema = fs.readFileSync(schemaPath, 'utf8');
         
         await pool.query(schema);
-        console.log('✅ Schema created successfully');
+        console.log(' Schema created successfully');
         
         // Insert initial loads
         await pool.query(`
@@ -35,7 +35,7 @@ async function initDatabase() {
                 ('AC Fan', 'AC', 'fan', '220V AC Cooling Fan', 220, 1, 120)
             ON CONFLICT DO NOTHING
         `);
-        console.log('✅ Loads created');
+        console.log(' Loads created');
         
         // Initialize load states
         await pool.query(`
@@ -43,7 +43,7 @@ async function initDatabase() {
             SELECT id, false, false FROM loads
             ON CONFLICT (load_id) DO NOTHING
         `);
-        console.log('✅ Load states initialized');
+        console.log(' Load states initialized');
         
         // Set default thresholds
         await pool.query(`
@@ -60,12 +60,12 @@ async function initDatabase() {
                 (2, 'power', 0, 120, 0, 100, 120)
             ON CONFLICT DO NOTHING
         `);
-        console.log('✅ Thresholds configured');
+        console.log(' Thresholds configured');
         
-        console.log('\n🎉 Database initialization complete!');
+        console.log('\n Database initialization complete!');
         
     } catch (error) {
-        console.error('❌ Database initialization failed:', error.message);
+        console.error(' Database initialization failed:', error.message);
         throw error;
     } finally {
         await pool.end();

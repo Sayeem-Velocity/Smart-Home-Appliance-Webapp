@@ -31,9 +31,9 @@ let currentData = {
 
 // Load detection thresholds
 const LOAD_DETECTION = {
-    minPower: 1.0,      // Minimum power to consider load connected (W)
-    minCurrent: 0.01,   // Minimum current to consider load connected (A)
-    minVoltage: 50      // Minimum voltage to consider system powered (V)
+    minPower: 1.0, // Minimum power to consider load connected (W)
+    minCurrent: 0.01, // Minimum current to consider load connected (A)
+    minVoltage: 50 // Minimum voltage to consider system powered (V)
 };
 
 // Database records storage
@@ -46,13 +46,13 @@ let aiControlEnabled = false;
 let esp32Connected = false;
 
 // Control Mode: 'auto' = temperature-based, 'manual' = user ON/OFF buttons
-let controlMode = 'auto';  // Default to AUTO mode (temperature control)
+let controlMode = 'auto'; // Default to AUTO mode (temperature control)
 
 // ============================================
 // Initialization
 // ============================================
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Dashboard initializing...');
+    console.log(' Dashboard initializing...');
     
     // Load user info
     loadUserInfo();
@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize AI model switcher
     initModelSwitcher();
     
-    console.log('✅ Dashboard initialized');
+    console.log(' Dashboard initialized');
 });
 
 // ============================================
@@ -106,41 +106,41 @@ function initializeSocket() {
     socket = io();
     
     socket.on('connect', () => {
-        console.log('✅ Socket.IO Connected');
+        console.log(' Socket.IO Connected');
         updateConnectionStatus(true);
         showToast('Connected to server', 'success');
     });
     
     socket.on('disconnect', () => {
-        console.log('❌ Socket.IO Disconnected');
+        console.log(' Socket.IO Disconnected');
         updateConnectionStatus(false);
         showToast('Disconnected from server', 'error');
     });
     
     // ESP32 Load Data
     socket.on('esp32:load_update', (data) => {
-        console.log('📊 Load Data received:', data);
-        console.log('   Load Number:', data.load_number || data.load_id || data.loadId);
-        console.log('   Voltage:', data.voltage, 'Current:', data.current, 'Power:', data.power);
-        console.log('   Relay State:', data.relay_state || data.relay);
+        console.log(' Load Data received:', data);
+        console.log(' Load Number:', data.load_number || data.load_id || data.loadId);
+        console.log(' Voltage:', data.voltage, 'Current:', data.current, 'Power:', data.power);
+        console.log(' Relay State:', data.relay_state || data.relay);
         handleLoadUpdate(data);
     });
     
     // ESP32 DHT11 Data
     socket.on('esp32:dht11_update', (data) => {
-        console.log('🌡️ DHT11 Data:', data);
+        console.log(' DHT11 Data:', data);
         handleDHT11Update(data);
     });
     
     // Relay State Update
     socket.on('esp32:relay_update', (data) => {
-        console.log('🔌 Relay Update:', data);
+        console.log(' Relay Update:', data);
         handleRelayUpdate(data);
     });
     
     // ESP32 Connection Status
     socket.on('esp32:status', (data) => {
-        console.log('📡 ESP32 Status:', data);
+        console.log(' ESP32 Status:', data);
         if (data.connected) {
             addAlert('ESP32 connected via MQTT', 'success');
         } else {
@@ -150,7 +150,7 @@ function initializeSocket() {
     
     // Relay status feedback from ESP32
     socket.on('esp32:relay_status', (data) => {
-        console.log('🔌 Relay Status from ESP32:', data);
+        console.log(' Relay Status from ESP32:', data);
         const loadNum = data.load_number;
         const isOn = data.relay_state === true || data.relay_state === 'true';
         currentData[`load${loadNum}`].relay = isOn;
@@ -208,7 +208,7 @@ function handleLoadUpdate(data) {
         
         // Auto-turn ON the relay when load is plugged in
         if (!relay) {
-            console.log(`🔌 Auto-turning ON Load ${loadNum}`);
+            console.log(` Auto-turning ON Load ${loadNum}`);
             setTimeout(() => {
                 toggleLoad(loadNum, true);
             }, 500); // Small delay for smooth UX
@@ -219,7 +219,7 @@ function handleLoadUpdate(data) {
         
         // Auto-turn OFF the relay when load is unplugged
         if (relay) {
-            console.log(`🔌 Auto-turning OFF Load ${loadNum}`);
+            console.log(` Auto-turning OFF Load ${loadNum}`);
             setTimeout(() => {
                 toggleLoad(loadNum, false);
             }, 500);
@@ -373,7 +373,7 @@ function applyTemperatureControl(temperature) {
     
     if (highTemp) {
         // High temperature (>=30°C): Turn ON Fan (Load 2), Turn OFF Bulb/Heater (Load 1)
-        console.log(`🌡️ Temperature ${temperature}°C >= 30°C - Activating Fan, Deactivating Bulb/Heater`);
+        console.log(` Temperature ${temperature}°C >= 30°C - Activating Fan, Deactivating Bulb/Heater`);
         addAlert(`Auto-control: Temp ${temperature.toFixed(1)}°C ≥ 30°C - Fan ON, Bulb/Heater OFF`, 'info');
         
         // Turn OFF Bulb/Heater (Load 1) - direct relay control without mode check
@@ -386,7 +386,7 @@ function applyTemperatureControl(temperature) {
         }
     } else {
         // Low temperature (<30°C): Turn ON Bulb/Heater (Load 1), Turn OFF Fan (Load 2)
-        console.log(`🌡️ Temperature ${temperature}°C < 30°C - Activating Bulb/Heater, Deactivating Fan`);
+        console.log(` Temperature ${temperature}°C < 30°C - Activating Bulb/Heater, Deactivating Fan`);
         addAlert(`Auto-control: Temp ${temperature.toFixed(1)}°C < 30°C - Bulb/Heater ON, Fan OFF`, 'info');
         
         // Turn OFF Fan (Load 2)
@@ -440,7 +440,7 @@ function updateManualControlStatus(loadNum, state) {
 // ============================================
 function setControlMode(mode) {
     controlMode = mode;
-    console.log(`🎛️ Control mode set to: ${mode}`);
+    console.log(` Control mode set to: ${mode}`);
     
     // Send mode change to ESP32 via Socket.IO -> MQTT
     if (socket) {
@@ -468,9 +468,13 @@ function setControlMode(mode) {
     const load1Indicator = document.getElementById('load1ModeIndicator');
     const load2Indicator = document.getElementById('load2ModeIndicator');
     
+    // Dim/enable Turn ON/OFF buttons based on mode
+    if (load1On) load1On.classList.toggle('auto-dim', mode === 'auto');
+    if (load1Off) load1Off.classList.toggle('auto-dim', mode === 'auto');
+    if (load2On) load2On.classList.toggle('auto-dim', mode === 'auto');
+    if (load2Off) load2Off.classList.toggle('auto-dim', mode === 'auto');
+
     if (mode === 'manual') {
-        // Buttons are always enabled, just update indicators
-        
         // Update mode indicators
         if (load1Indicator) {
             load1Indicator.innerHTML = '<i class="fas fa-hand-pointer"></i> Manual Mode';
@@ -492,8 +496,6 @@ function setControlMode(mode) {
         showToast('Manual Mode Activated - Use Turn ON/OFF buttons', 'info');
         addAlert('Manual mode ON: Use buttons to control loads', 'info');
     } else {
-        // Buttons remain enabled, just update indicators
-        
         // Update mode indicators
         if (load1Indicator) {
             load1Indicator.innerHTML = '<i class="fas fa-thermometer-half"></i> Auto Mode';
@@ -512,7 +514,7 @@ function setControlMode(mode) {
         // Reset and re-apply temperature control immediately
         lastTempControlState = null;
         if (currentData.environment.temperature > 0) {
-            console.log(`🌡️ Auto mode activated - Applying temperature control at ${currentData.environment.temperature}°C`);
+            console.log(` Auto mode activated - Applying temperature control at ${currentData.environment.temperature}°C`);
             applyTemperatureControl(currentData.environment.temperature);
         }
         
@@ -548,7 +550,7 @@ function handleRelayUpdate(data) {
 }
 
 function updateLoadDisplay(loadNum, data) {
-    console.log(`🔄 Updating Load ${loadNum} display with:`, data);
+    console.log(` Updating Load ${loadNum} display with:`, data);
     
     // Apply noise threshold - show 0 for very small values when relay is off
     let voltage = data.voltage;
@@ -567,7 +569,7 @@ function updateLoadDisplay(loadNum, data) {
     const currentEl = document.getElementById(`current${loadNum}`);
     const powerEl = document.getElementById(`power${loadNum}`);
     
-    console.log(`   Elements found: voltage=${!!voltageEl}, current=${!!currentEl}, power=${!!powerEl}`);
+    console.log(` Elements found: voltage=${!!voltageEl}, current=${!!currentEl}, power=${!!powerEl}`);
     
     if (voltageEl) voltageEl.textContent = voltage.toFixed(1);
     if (currentEl) currentEl.textContent = current.toFixed(2);
@@ -959,7 +961,7 @@ function updateTemperatureChart() {
 
 // Direct relay command (used by auto temperature control)
 function sendRelayCommand(loadNum, state) {
-    console.log(`🔌 Sending relay command ${loadNum}: ${state ? 'ON' : 'OFF'} (mode: ${controlMode})`);
+    console.log(` Sending relay command ${loadNum}: ${state ? 'ON' : 'OFF'} (mode: ${controlMode})`);
     
     // Update button visual states immediately
     updateButtonStates(loadNum, state);
@@ -988,11 +990,11 @@ function sendRelayCommand(loadNum, state) {
 function controlRelay(loadNum, state) {
     // Auto-switch to manual mode if not already in manual mode
     if (controlMode !== 'manual') {
-        console.log('🔄 Auto-switching to Manual mode');
+        console.log(' Auto-switching to Manual mode');
         setControlMode('manual');
     }
     
-    console.log(`🔌 Controlling relay ${loadNum}: ${state ? 'ON' : 'OFF'}`);
+    console.log(` Controlling relay ${loadNum}: ${state ? 'ON' : 'OFF'}`);
     
     // Update button visual states immediately
     updateButtonStates(loadNum, state);
@@ -1356,7 +1358,7 @@ async function loadDatabaseStats() {
 // AI Autonomous Control Panel Functions
 // ============================================
 function toggleAIControl(enabled) {
-    console.log(`🤖 Toggling AI Control: ${enabled}`);
+    console.log(` Toggling AI Control: ${enabled}`);
     aiControlEnabled = enabled;
     
     const enableBtn = document.getElementById('enableAIBtn');
@@ -1408,7 +1410,7 @@ function toggleAIControl(enabled) {
 }
 
 async function triggerAIDecision() {
-    console.log('🧠 Triggering AI Decision...');
+    console.log(' Triggering AI Decision...');
     
     const triggerBtn = document.getElementById('triggerDecisionBtn');
     if (triggerBtn) {
@@ -1631,7 +1633,7 @@ async function sendChatMessage() {
             addChatMessage(aiResponse, 'bot');
             
             if (data.provider) {
-                console.log(`🤖 Response from: ${data.provider}`);
+                console.log(` Response from: ${data.provider}`);
             }
         } else {
             const errorMsg = data.error || 'Failed to get AI response. Please try again.';
@@ -1640,7 +1642,7 @@ async function sendChatMessage() {
     } catch (error) {
         removeTypingIndicator(typingId);
         console.error('Chat error:', error);
-        addChatMessage('⚠️ Connection error. Please check your internet and try again.', 'bot');
+        addChatMessage(' Connection error. Please check your internet and try again.', 'bot');
     }
 }
 
