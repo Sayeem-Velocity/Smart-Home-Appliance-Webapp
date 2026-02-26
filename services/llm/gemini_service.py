@@ -10,6 +10,7 @@ import json
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
+import httpx
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
@@ -19,15 +20,26 @@ from ..models.analysis import LoadAnalysis, AnomalyReport, EnergyInsight
 
 logger = logging.getLogger(__name__)
 
+CEREBRAS_API_URL = "https://api.cerebras.ai/v1/chat/completions"
+
 
 class GeminiService:
     """Google Gemini AI service for dashboard analytics and chat"""
 
     def __init__(self):
         self.api_key = settings.gemini_api_key
+        self.cerebras_api_key = settings.cerebras_api_key
+        self.cerebras_model = settings.cerebras_model
+        self.current_provider = 'gemini'
 
         if not self.api_key:
-            logger.warning("No Gemini API key found - will use mock responses")
+            logger.warning("No Gemini API key found")
+            if self.cerebras_api_key:
+                logger.info("✅ Cerebras AI available as primary provider")
+                self.current_provider = 'cerebras'
+                self.initialized = True
+                return
+            logger.warning("No AI keys found - will use mock responses")
             self.initialized = False
             return
 
@@ -35,9 +47,9 @@ class GeminiService:
             # Configure the SDK with API key
             genai.configure(api_key=self.api_key)
 
-            # Use Gemini 1.5 Flash (stable, reliable model)
+            # Use Gemini 2.5 Flash
             self.model = genai.GenerativeModel(
-                model_name="gemini-1.5-flash",
+                model_name="gemini-2.5-flash",
                 generation_config={
                     "temperature": 0.7,
                     "top_p": 0.9,
@@ -53,11 +65,46 @@ class GeminiService:
             )
 
             self.initialized = True
-            logger.info("✅ Gemini service initialized with gemini-1.5-flash")
+            self.current_provider = 'gemini'
+            logger.info("✅ Gemini service initialized with gemini-2.5-flash")
+            if self.cerebras_api_key:
+                logger.info(f"✅ Cerebras AI configured as fallback (model: {self.cerebras_model})")
 
         except Exception as e:
             logger.error(f"❌ Failed to initialize Gemini service: {e}")
-            self.initialized = False
+            if self.cerebras_api_key:
+                logger.info("✅ Falling back to Cerebras AI")
+                self.current_provider = 'cerebras'
+                self.initialized = True
+            else:
+                self.initialized = False
+
+    async def _call_cerebras(self, prompt: str, system_prompt: str = "") -> str:
+        """Call Cerebras AI API (OpenAI-compatible) as fallback provider."""
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                CEREBRAS_API_URL,
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {self.cerebras_api_key}"
+                },
+                json={
+                    "model": self.cerebras_model,
+                    "messages": messages,
+                    "max_completion_tokens": 32768,
+                    "temperature": 0.7,
+                    "top_p": 0.9,
+                    "stream": False
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data["choices"][0]["message"]["content"]
 
     async def chat(
         self,
@@ -113,18 +160,45 @@ You help users understand their energy usage, device status, anomalies, and pote
 
 Provide a helpful, detailed response:"""
 
-            # Generate response
-            response = await asyncio.to_thread(
-                self.model.generate_content, prompt
-            )
+            # Generate response - try Gemini first, fallback to Cerebras
+            try:
+                response = await asyncio.to_thread(
+                    self.model.generate_content, prompt
+                )
 
-            if response and response.text:
-                return response.text.strip()
-            else:
+                if response and response.text:
+                    return response.text.strip()
+                else:
+                    raise Exception("Empty Gemini response")
+                    
+            except Exception as gemini_error:
+                logger.warning(f"Gemini chat failed: {gemini_error}")
+                
+                # Fallback to Cerebras
+                if self.cerebras_api_key:
+                    logger.info("Falling back to Cerebras AI for chat...")
+                    try:
+                        result = await self._call_cerebras(prompt)
+                        return result.strip()
+                    except Exception as cerebras_error:
+                        logger.error(f"Cerebras fallback also failed: {cerebras_error}")
+                
                 return self._generate_fallback_response(message, system_context)
 
         except Exception as e:
-            logger.error(f"Gemini API error: {e}")
+            logger.error(f"Chat error: {e}")
+            
+            # Try Cerebras if available
+            if self.cerebras_api_key:
+                try:
+                    result = await self._call_cerebras(
+                        f"User question about smart home energy monitoring: {message}",
+                        "You are an expert AI assistant for a smart electrical load monitoring dashboard."
+                    )
+                    return result.strip()
+                except Exception:
+                    pass
+            
             return self._generate_fallback_response(message, system_context)
 
     async def analyze_anomalies(

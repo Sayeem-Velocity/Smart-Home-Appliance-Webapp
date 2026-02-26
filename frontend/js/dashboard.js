@@ -82,6 +82,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize control mode to AUTO
     setControlMode('auto');
     
+    // Initialize AI model switcher
+    initModelSwitcher();
+    
     console.log('✅ Dashboard initialized');
 });
 
@@ -1324,244 +1327,7 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 
-// ============================================
-// AI Chat Functions
-// ============================================
-async function sendChatMessage() {
-    const input = document.getElementById('aiChatInput');
-    const message = input.value.trim();
-    
-    if (!message) return;
-    
-    // Add user message to chat
-    addChatMessage(message, 'user');
-    input.value = '';
-    
-    // Show typing indicator
-    const typingId = showTypingIndicator();
-    
-    try {
-        // Get current system data context
-        const systemContext = {
-            load1: currentData.load1,
-            load2: currentData.load2,
-            environment: currentData.environment,
-            timestamp: new Date().toISOString()
-        };
-        
-        // Call AI service
-        const response = await fetch('/api/ai/chat', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            },
-            body: JSON.stringify({
-                message: message,
-                context: systemContext
-            })
-        });
-        
-        removeTypingIndicator(typingId);
-        
-        if (response.ok) {
-            const data = await response.json();
-            if (data.success !== false) {
-                addChatMessage(data.response || data.message, 'bot');
-            } else {
-                // API returned error in response
-                console.error('AI Error:', data);
-                const localResponse = generateLocalResponse(message);
-                addChatMessage(localResponse, 'bot');
-            }
-        } else if (response.status === 401) {
-            // Auth error - redirect to login
-            const errorData = await response.json().catch(() => ({}));
-            console.error('Authentication required:', errorData);
-            addChatMessage('**Session Expired**\n\nYour session has expired. Please refresh the page and login again.', 'bot');
-            // Optionally redirect after 3 seconds
-            setTimeout(() => {
-                if (confirm('Your session expired. Reload page to login?')) {
-                    window.location.href = '/index.html';
-                }
-            }, 2000);
-        } else {
-            // HTTP error
-            const errorData = await response.json().catch(() => ({}));
-            console.error('Chat API Error:', response.status, errorData);
-            const localResponse = generateLocalResponse(message);
-            addChatMessage(localResponse, 'bot');
-        }
-    } catch (error) {
-        console.error('Chat request error:', error);
-        removeTypingIndicator(typingId);
-        const localResponse = generateLocalResponse(message);
-        addChatMessage(localResponse, 'bot');
-    }
-}
-
-function generateLocalResponse(message) {
-    const lowerMsg = message.toLowerCase();
-    
-    if (lowerMsg.includes('power') || lowerMsg.includes('consumption')) {
-        const totalPower = currentData.load1.power + currentData.load2.power;
-        return `**Current Power Consumption**
-
-• **Total Power:** ${totalPower.toFixed(1)}W
-• **AC Heater:** ${currentData.load1.power.toFixed(1)}W (${currentData.load1.relay ? 'ON' : 'OFF'})
-• **AC Bulb:** ${currentData.load2.power.toFixed(1)}W (${currentData.load2.relay ? 'ON' : 'OFF'})`;
-    }
-    
-    if (lowerMsg.includes('temperature') || lowerMsg.includes('temp')) {
-        return `**Environment Status**
-
-• **Temperature:** ${currentData.environment.temperature.toFixed(1)}°C
-• **Humidity:** ${currentData.environment.humidity.toFixed(0)}%
-
-${currentData.environment.temperature > 30 ? 'Warning: Temperature is high. Consider turning off the heater.' : 'Temperature is within normal range.'}`;
-    }
-    
-    if (lowerMsg.includes('energy') || lowerMsg.includes('saving') || lowerMsg.includes('tips')) {
-        return `**Energy Saving Tips**
-
-1. Turn off AC Heater when temperature > 25°C
-2. Use AC Bulb only when needed
-3. Current status: ${currentData.load1.relay || currentData.load2.relay ? 'You have active loads running' : 'All loads are off'}
-4. Consider scheduling loads during off-peak hours`;
-    }
-    
-    if (lowerMsg.includes('pattern') || lowerMsg.includes('analyze')) {
-        const avgVoltage = (currentData.load1.voltage + currentData.load2.voltage) / 2;
-        return `**Load Analysis**
-
-• **Average Voltage:** ${avgVoltage.toFixed(1)}V
-• **Total Current:** ${(currentData.load1.current + currentData.load2.current).toFixed(2)}A
-• **Active Loads:** ${[currentData.load1.relay && 'AC Heater', currentData.load2.relay && 'AC Bulb'].filter(Boolean).join(', ') || 'None'}
-
-${avgVoltage < 200 ? 'Warning: Voltage seems low. Check your power supply.' : 'Voltage levels are normal.'}`;
-    }
-    
-    if (lowerMsg.includes('turn on') || lowerMsg.includes('turn off')) {
-        return `**Load Control**
-
-To control loads, use the buttons on the dashboard or the Load Control page. You can:
-• Turn ON/OFF AC Heater (Load 1)
-• Turn ON/OFF AC Bulb (Load 2)
-• DC Fan is coming soon!`;
-    }
-    
-    return `I understand you're asking about: "${message}"
-    
-    **I can help you with:**
-    • Checking power consumption
-    • Temperature monitoring
-    • Energy saving tips
-    • Load pattern analysis
-    
-    Please try one of the quick questions or ask about your loads!`;
-}
-
-function formatAIResponse(content) {
-    // Convert markdown-style formatting to HTML
-    let formatted = content
-        // Bold text: **text** -> <strong>text</strong>
-        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-        // Add icons for common keywords
-        .replace(/<strong>Current Power/g, '<i class="fas fa-bolt text-warning"></i> <strong>Current Power')
-        .replace(/<strong>Power Consumption/g, '<i class="fas fa-bolt text-warning"></i> <strong>Power Consumption')
-        .replace(/<strong>Environment Status/g, '<i class="fas fa-thermometer-half text-info"></i> <strong>Environment Status')
-        .replace(/<strong>Temperature/g, '<i class="fas fa-temperature-high text-danger"></i> <strong>Temperature')
-        .replace(/<strong>Humidity/g, '<i class="fas fa-tint text-info"></i> <strong>Humidity')
-        .replace(/<strong>Energy Saving/g, '<i class="fas fa-leaf text-success"></i> <strong>Energy Saving')
-        .replace(/<strong>Cost/g, '<i class="fas fa-dollar-sign text-success"></i> <strong>Cost')
-        .replace(/<strong>Load Analysis/g, '<i class="fas fa-chart-bar text-primary"></i> <strong>Load Analysis')
-        .replace(/<strong>Usage Analysis/g, '<i class="fas fa-chart-line text-primary"></i> <strong>Usage Analysis')
-        .replace(/<strong>AC Heater/g, '<i class="fas fa-fire text-danger"></i> <strong>AC Heater')
-        .replace(/<strong>AC Bulb/g, '<i class="fas fa-lightbulb text-warning"></i> <strong>AC Bulb')
-        .replace(/<strong>Load Control/g, '<i class="fas fa-sliders-h text-primary"></i> <strong>Load Control')
-        .replace(/<strong>Hello!/g, '<i class="fas fa-hand-wave text-primary"></i> <strong>Hello!')
-        .replace(/<strong>System Status/g, '<i class="fas fa-server text-info"></i> <strong>System Status')
-        .replace(/<strong>Active Alerts/g, '<i class="fas fa-exclamation-triangle text-warning"></i> <strong>Active Alerts')
-        .replace(/<strong>No Active Alerts/g, '<i class="fas fa-check-circle text-success"></i> <strong>No Active Alerts')
-        .replace(/<strong>Prediction/g, '<i class="fas fa-crystal-ball text-purple"></i> <strong>Prediction')
-        .replace(/<strong>Today's Summary/g, '<i class="fas fa-calendar-day text-info"></i> <strong>Today\'s Summary')
-        .replace(/<strong>Breakdown/g, '<i class="fas fa-list-alt text-secondary"></i> <strong>Breakdown')
-        .replace(/<strong>Devices/g, '<i class="fas fa-plug text-info"></i> <strong>Devices')
-        .replace(/<strong>Summary/g, '<i class="fas fa-clipboard-list text-info"></i> <strong>Summary')
-        // Status indicators
-        .replace(/ON \(Active\)/g, '<span class="badge bg-success"><i class="fas fa-power-off"></i> ON</span>')
-        .replace(/OFF \(Inactive\)/g, '<span class="badge bg-secondary"><i class="fas fa-power-off"></i> OFF</span>')
-        .replace(/Warning:/g, '<span class="text-warning"><i class="fas fa-exclamation-triangle"></i> Warning:</span>')
-        // Line breaks
-        .replace(/\n\n/g, '</p><p>')
-        .replace(/\n/g, '<br>');
-    
-    return formatted;
-}
-
-function addChatMessage(content, type) {
-    const container = document.getElementById('aiChatMessages');
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `ai-message ${type}`;
-    
-    const icon = type === 'user' ? 'fa-user' : 'fa-robot';
-    const formattedContent = type === 'bot' ? formatAIResponse(content) : content;
-    
-    messageDiv.innerHTML = `
-        <div class="message-avatar"><i class="fas ${icon}"></i></div>
-        <div class="message-content">
-            <p>${formattedContent}</p>
-        </div>
-    `;
-    
-    container.appendChild(messageDiv);
-    container.scrollTop = container.scrollHeight;
-}
-
-function showTypingIndicator() {
-    const container = document.getElementById('aiChatMessages');
-    const id = 'typing-' + Date.now();
-    const typingDiv = document.createElement('div');
-    typingDiv.id = id;
-    typingDiv.className = 'ai-message bot typing';
-    typingDiv.innerHTML = `
-        <div class="message-avatar"><i class="fas fa-robot"></i></div>
-        <div class="message-content">
-            <p><span class="typing-dots">...</span></p>
-        </div>
-    `;
-    container.appendChild(typingDiv);
-    container.scrollTop = container.scrollHeight;
-    return id;
-}
-
-function removeTypingIndicator(id) {
-    const typing = document.getElementById(id);
-    if (typing) typing.remove();
-}
-
-function handleChatKeypress(event) {
-    if (event.key === 'Enter') {
-        sendChatMessage();
-    }
-}
-
-function askQuestion(question) {
-    document.getElementById('aiChatInput').value = question;
-    sendChatMessage();
-}
-
-function clearChatHistory() {
-    const container = document.getElementById('aiChatMessages');
-    container.innerHTML = `
-        <div class="ai-message bot">
-            <div class="message-avatar"><i class="fas fa-robot"></i></div>
-            <div class="message-content">
-                <p>Chat history cleared. How can I help you?</p>
-            </div>
-        </div>
-    `;
-}
+// (First duplicate AI Chat block removed - active functions are below in the model-switching section)
 
 // ============================================
 // Database API Functions
@@ -1756,8 +1522,58 @@ function updateRelayStatus(loadNum, isOn) {
 }
 
 // ============================================
-// AI Chat Functions
+// AI Chat Functions (with Model Switching)
 // ============================================
+let selectedAIModel = localStorage.getItem('selectedAIModel') || 'gemini';
+
+function initModelSwitcher() {
+    // Set initial active state
+    const geminiBtn = document.getElementById('modelBtnGemini');
+    const openaiBtn = document.getElementById('modelBtnOpenai');
+    if (geminiBtn && openaiBtn) {
+        if (selectedAIModel === 'gemini') {
+            geminiBtn.classList.add('active');
+            openaiBtn.classList.remove('active');
+        } else {
+            openaiBtn.classList.add('active');
+            geminiBtn.classList.remove('active');
+        }
+    }
+    updateModelLabels();
+}
+
+function switchAIModel(modelId) {
+    selectedAIModel = modelId;
+    localStorage.setItem('selectedAIModel', modelId);
+    
+    // Update button active states
+    const geminiBtn = document.getElementById('modelBtnGemini');
+    const openaiBtn = document.getElementById('modelBtnOpenai');
+    if (geminiBtn && openaiBtn) {
+        geminiBtn.classList.toggle('active', modelId === 'gemini');
+        openaiBtn.classList.toggle('active', modelId === 'cerebras');
+    }
+    
+    updateModelLabels();
+    showToast(`Switched to ${modelId === 'gemini' ? 'Gemini 2.5 Flash' : 'OpenAI GPT-OSS 120B'}`, 'success');
+}
+
+function updateModelLabels() {
+    const modelLabel = document.getElementById('aiModelLabel');
+    const providerBadge = document.getElementById('aiProviderBadge');
+    const infoProvider = document.getElementById('aiInfoProvider');
+    const infoModel = document.getElementById('aiInfoModel');
+    
+    const isGemini = selectedAIModel === 'gemini';
+    const providerName = isGemini ? 'Gemini 2.5 Flash' : 'GPT-OSS 120B';
+    const providerShort = isGemini ? 'Gemini' : 'OpenAI';
+    
+    if (modelLabel) modelLabel.textContent = providerName;
+    if (providerBadge) providerBadge.innerHTML = `<i class="fas fa-microchip"></i> ${providerShort}`;
+    if (infoProvider) infoProvider.textContent = providerShort;
+    if (infoModel) infoModel.textContent = providerName;
+}
+
 function handleChatKeypress(event) {
     if (event.key === 'Enter') {
         sendChatMessage();
@@ -1769,6 +1585,10 @@ async function sendChatMessage() {
     const message = input.value.trim();
     
     if (!message) return;
+    
+    // Remove welcome card if present
+    const welcomeCard = document.querySelector('.ai-welcome-card');
+    if (welcomeCard) welcomeCard.remove();
     
     // Add user message to chat
     addChatMessage(message, 'user');
@@ -1785,7 +1605,8 @@ async function sendChatMessage() {
                 'Authorization': `Bearer ${localStorage.getItem('authToken')}`
             },
             body: JSON.stringify({ 
-                message: message
+                message: message,
+                preferredModel: selectedAIModel
             })
         });
         
@@ -1794,7 +1615,7 @@ async function sendChatMessage() {
         
         const data = await response.json();
         
-        // Handle auth errors (401/403) or explicit token errors
+        // Handle auth errors
         if (response.status === 401 || response.status === 403 || (data.error && data.error.includes('token'))) {
             addChatMessage('**Session Expired**<br>Please login again. Redirecting...', 'bot');
             setTimeout(() => {
@@ -1806,16 +1627,13 @@ async function sendChatMessage() {
         }
         
         if (response.ok && data.success !== false) {
-            // Handle successful response
             const aiResponse = data.response || data.message || 'No response received.';
             addChatMessage(aiResponse, 'bot');
             
-            // Show data source indicator
-            if (data.dataSource) {
-                console.log(`📊 Response from: ${data.dataSource}`);
+            if (data.provider) {
+                console.log(`🤖 Response from: ${data.provider}`);
             }
         } else {
-            // Handle error response
             const errorMsg = data.error || 'Failed to get AI response. Please try again.';
             addChatMessage(errorMsg, 'bot');
         }
@@ -1831,14 +1649,15 @@ function addChatMessage(message, sender) {
     if (!messagesContainer) return;
     
     const messageDiv = document.createElement('div');
-    messageDiv.className = `ai-message ${sender}`;
+    messageDiv.className = `ai-message ${sender === 'user' ? 'user' : 'bot'}`;
     
     const icon = sender === 'user' ? 'fa-user' : 'fa-robot';
+    const formattedContent = sender === 'bot' ? formatMessage(message) : escapeHtml(message);
     
     messageDiv.innerHTML = `
         <div class="message-avatar"><i class="fas ${icon}"></i></div>
         <div class="message-content">
-            <p>${formatMessage(message)}</p>
+            <p>${formattedContent}</p>
         </div>
     `;
     
@@ -1846,27 +1665,26 @@ function addChatMessage(message, sender) {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 function formatMessage(message) {
     if (!message) return '';
     
-    // Convert markdown-like formatting to HTML
     return message
-        // Headers
         .replace(/^### (.*$)/gm, '<h4>$1</h4>')
         .replace(/^## (.*$)/gm, '<h3>$1</h3>')
         .replace(/^# (.*$)/gm, '<h2>$1</h2>')
-        // Bold
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        // Italic
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        // Bullet points
         .replace(/^• (.*$)/gm, '<li>$1</li>')
         .replace(/^- (.*$)/gm, '<li>$1</li>')
         .replace(/^\d+\. (.*$)/gm, '<li>$1</li>')
-        // Line breaks
         .replace(/\n\n/g, '</p><p>')
         .replace(/\n/g, '<br>')
-        // Wrap lists
         .replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>')
         .replace(/<\/ul><ul>/g, '');
 }
@@ -1914,12 +1732,32 @@ function clearChatHistory() {
     const messagesContainer = document.getElementById('aiChatMessages');
     if (!messagesContainer) return;
     
-    // Keep only the first welcome message
-    const welcomeMessage = messagesContainer.querySelector('.ai-message.bot');
-    messagesContainer.innerHTML = '';
-    if (welcomeMessage) {
-        messagesContainer.appendChild(welcomeMessage.cloneNode(true));
-    }
+    messagesContainer.innerHTML = `
+        <div class="ai-welcome-card">
+            <div class="welcome-icon"><i class="fas fa-robot"></i></div>
+            <h3>Chat Cleared</h3>
+            <p>Ready for a fresh conversation. Ask me anything about your smart load management system.</p>
+            <div class="welcome-chips">
+                <div class="welcome-chip" onclick="askQuestion('Show current power usage')">
+                    <i class="fas fa-bolt"></i> Power Usage
+                </div>
+                <div class="welcome-chip" onclick="askQuestion('Give me energy saving tips')">
+                    <i class="fas fa-leaf"></i> Energy Tips
+                </div>
+                <div class="welcome-chip" onclick="askQuestion('Analyze load patterns')">
+                    <i class="fas fa-chart-line"></i> Patterns
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Also clear server-side history
+    fetch('/api/ai/chat/clear', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+    }).catch(() => {});
     
     showToast('Chat history cleared', 'success');
 }

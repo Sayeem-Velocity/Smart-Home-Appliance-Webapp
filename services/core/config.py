@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     
     # API Keys - Read from .env file in parent directory
     gemini_api_key: Optional[str] = None
+    cerebras_api_key: Optional[str] = None
+    cerebras_model: str = "gpt-oss-120b"
     
     # Server
     host: str = "0.0.0.0"

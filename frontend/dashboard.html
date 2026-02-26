@@ -31,10 +31,6 @@
                 <i class="fas fa-tachometer-alt"></i>
                 <span>Dashboard</span>
             </a>
-            <a href="#" class="nav-item" data-page="loads">
-                <i class="fas fa-plug"></i>
-                <span>Load Control</span>
-            </a>
             <a href="#" class="nav-item" data-page="analytics">
                 <i class="fas fa-chart-line"></i>
                 <span>Analytics</span>
@@ -546,49 +542,146 @@
 
         <!-- AI Chat Page -->
         <div id="aiPage" class="page">
-            <div class="page-header">
-                <h2><i class="fas fa-robot"></i> AI Assistant</h2>
-            </div>
-            <div class="ai-container">
-                <div class="ai-chat-container">
-                    <div class="ai-chat-header">
-                        <div class="ai-avatar"><i class="fas fa-robot"></i></div>
-                        <div class="ai-info">
-                            <h3>Smart Load AI</h3>
-                            <span class="ai-status">Online - Ready to help</span>
+            <div class="ai-page-wrapper">
+                <!-- Floating AI Chat Window -->
+                <div class="ai-floating-chat">
+                    <!-- Glassmorphic Header with Model Switcher -->
+                    <div class="ai-float-header">
+                        <div class="ai-header-left">
+                            <div class="ai-avatar-glow">
+                                <i class="fas fa-brain"></i>
+                                <span class="ai-pulse-ring"></span>
+                            </div>
+                            <div class="ai-header-info">
+                                <h3>Smart Energy AI</h3>
+                                <div class="ai-model-indicator">
+                                    <span class="ai-live-dot"></span>
+                                    <span id="aiModelLabel">Gemini 2.5 Flash</span>
+                                </div>
+                            </div>
                         </div>
-                        <button class="clear-chat-btn" onclick="clearChatHistory()">
-                            <i class="fas fa-trash"></i> Clear
-                        </button>
+                        <div class="ai-header-actions">
+                            <!-- Model Switcher -->
+                            <div class="ai-model-switcher">
+                                <button class="model-switch-btn active" id="modelBtnGemini" onclick="switchAIModel('gemini')" title="Google Gemini 2.5 Flash">
+                                    <i class="fas fa-star"></i>
+                                    <span>Gemini</span>
+                                </button>
+                                <button class="model-switch-btn" id="modelBtnOpenai" onclick="switchAIModel('cerebras')" title="Cerebras GPT-OSS 120B">
+                                    <i class="fas fa-microchip"></i>
+                                    <span>OpenAI</span>
+                                </button>
+                            </div>
+                            <button class="ai-clear-btn" onclick="clearChatHistory()" title="Clear chat">
+                                <i class="fas fa-broom"></i>
+                            </button>
+                        </div>
                     </div>
+
+                    <!-- Chat Messages Area -->
                     <div class="ai-chat-messages" id="aiChatMessages">
-                        <div class="ai-message bot">
-                            <div class="message-avatar"><i class="fas fa-robot"></i></div>
-                            <div class="message-content">
-                                <p>Hello! I'm your Smart Load AI assistant. I can help you with:</p>
-                                <ul>
-                                    <li>Analyzing power consumption patterns</li>
-                                    <li>Providing energy-saving recommendations</li>
-                                    <li>Answering questions about your loads</li>
-                                    <li>Monitoring system health</li>
-                                </ul>
-                                <p>How can I assist you today?</p>
+                        <div class="ai-welcome-card">
+                            <div class="welcome-icon">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <h3>Welcome to Smart Energy AI</h3>
+                            <p>I monitor your home in real-time and help optimize energy usage. Ask me anything about your loads, costs, or get autonomous control recommendations.</p>
+                            <div class="welcome-chips">
+                                <button class="welcome-chip" onclick="askQuestion('What is my current power consumption?')">
+                                    <i class="fas fa-bolt"></i> Power Usage
+                                </button>
+                                <button class="welcome-chip" onclick="askQuestion('How can I save energy and reduce my electricity bill?')">
+                                    <i class="fas fa-leaf"></i> Save Energy
+                                </button>
+                                <button class="welcome-chip" onclick="askQuestion('Analyze my usage patterns and predict monthly cost')">
+                                    <i class="fas fa-chart-line"></i> Cost Forecast
+                                </button>
+                                <button class="welcome-chip" onclick="askQuestion('What is the temperature and humidity?')">
+                                    <i class="fas fa-thermometer-half"></i> Environment
+                                </button>
                             </div>
                         </div>
                     </div>
-                    <div class="ai-chat-input">
-                        <input type="text" id="aiChatInput" placeholder="Ask me anything..." onkeypress="handleChatKeypress(event)">
-                        <button onclick="sendChatMessage()"><i class="fas fa-paper-plane"></i></button>
+
+                    <!-- Floating Input Bar -->
+                    <div class="ai-float-input">
+                        <div class="ai-input-wrapper">
+                            <i class="fas fa-sparkles ai-input-icon"></i>
+                            <input type="text" id="aiChatInput" placeholder="Ask about your energy, devices, costs..." onkeypress="handleChatKeypress(event)" autocomplete="off">
+                            <button class="ai-send-btn" onclick="sendChatMessage()" title="Send message">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                        <div class="ai-input-hints">
+                            <span class="ai-provider-badge" id="aiProviderBadge">
+                                <i class="fas fa-star"></i> Gemini 2.5 Flash
+                            </span>
+                            <span class="ai-memory-badge">
+                                <i class="fas fa-brain"></i> Memory Active
+                            </span>
+                        </div>
                     </div>
                 </div>
-                <div class="ai-suggestions">
-                    <h4>Quick Questions</h4>
-                    <button class="suggestion-btn" onclick="askQuestion('What is my current power consumption?')"><i class="fas fa-bolt"></i> Current power usage</button>
-                    <button class="suggestion-btn" onclick="askQuestion('How can I save energy and reduce my electricity bill?')"><i class="fas fa-leaf"></i> Energy saving tips</button>
-                    <button class="suggestion-btn" onclick="askQuestion('Analyze my usage patterns and predict monthly cost')"><i class="fas fa-chart-bar"></i> Cost prediction</button>
-                    <button class="suggestion-btn" onclick="askQuestion('What is the temperature and humidity?')"><i class="fas fa-thermometer-half"></i> Environment status</button>
-                    <button class="suggestion-btn" onclick="askQuestion('Tell me about the AC Bulb/Heater status')"><i class="fas fa-plug"></i> AC Bulb/Heater details</button>
-                    <button class="suggestion-btn" onclick="askQuestion('Tell me about the AC Fan status')"><i class="fas fa-fan"></i> AC Fan details</button>
+
+                <!-- Side Panel - Quick Actions -->
+                <div class="ai-side-panel">
+                    <div class="ai-side-section">
+                        <h4><i class="fas fa-wand-magic-sparkles"></i> Quick Actions</h4>
+                        <div class="ai-quick-actions">
+                            <button class="ai-action-btn" onclick="askQuestion('What is my current power consumption?')">
+                                <div class="action-icon"><i class="fas fa-bolt"></i></div>
+                                <span>Live Power</span>
+                            </button>
+                            <button class="ai-action-btn" onclick="askQuestion('Tell me about all device statuses')">
+                                <div class="action-icon"><i class="fas fa-plug"></i></div>
+                                <span>Devices</span>
+                            </button>
+                            <button class="ai-action-btn" onclick="askQuestion('What is the temperature and humidity?')">
+                                <div class="action-icon"><i class="fas fa-temperature-half"></i></div>
+                                <span>Climate</span>
+                            </button>
+                            <button class="ai-action-btn" onclick="askQuestion('How much is my electricity costing today?')">
+                                <div class="action-icon"><i class="fas fa-dollar-sign"></i></div>
+                                <span>Cost</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="ai-side-section">
+                        <h4><i class="fas fa-lightbulb"></i> Suggestions</h4>
+                        <button class="suggestion-btn-v2" onclick="askQuestion('How can I save energy and reduce my electricity bill?')">
+                            <i class="fas fa-leaf"></i> Energy saving tips
+                        </button>
+                        <button class="suggestion-btn-v2" onclick="askQuestion('Analyze my usage patterns and predict monthly cost')">
+                            <i class="fas fa-chart-bar"></i> Cost prediction
+                        </button>
+                        <button class="suggestion-btn-v2" onclick="askQuestion('Check for any anomalies or safety concerns')">
+                            <i class="fas fa-shield-halved"></i> Safety check
+                        </button>
+                        <button class="suggestion-btn-v2" onclick="askQuestion('Give me a daily energy summary report')">
+                            <i class="fas fa-file-lines"></i> Daily report
+                        </button>
+                    </div>
+                    <div class="ai-side-section">
+                        <h4><i class="fas fa-circle-info"></i> AI Info</h4>
+                        <div class="ai-info-card">
+                            <div class="ai-info-row">
+                                <span>Provider</span>
+                                <span id="aiInfoProvider" class="ai-info-value">Gemini</span>
+                            </div>
+                            <div class="ai-info-row">
+                                <span>Model</span>
+                                <span id="aiInfoModel" class="ai-info-value">2.5 Flash</span>
+                            </div>
+                            <div class="ai-info-row">
+                                <span>Memory</span>
+                                <span class="ai-info-value active">Per-user</span>
+                            </div>
+                            <div class="ai-info-row">
+                                <span>DB Connected</span>
+                                <span class="ai-info-value active">Yes</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

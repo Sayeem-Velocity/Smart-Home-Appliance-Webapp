@@ -10,6 +10,9 @@ pydantic-settings>=2.1.0
 # Google Gemini AI
 google-generativeai>=0.8.0
 
+# Cerebras AI (fallback provider)
+cerebras-cloud-sdk>=1.0.0
+
 # Database (optional - for direct DB access)
 asyncpg>=0.29.0
 psycopg2-binary>=2.9.9

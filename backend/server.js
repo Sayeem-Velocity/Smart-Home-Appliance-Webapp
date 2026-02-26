@@ -277,11 +277,11 @@ app.get('/api/energy/:loadId', auth.authMiddleware, async (req, res) => {
 // AI Chat Route
 app.post('/api/ai/chat', auth.authMiddleware, async (req, res) => {
     try {
-        const { message } = req.body;
+        const { message, preferredModel } = req.body;
         const username = req.user.username; // Get username from auth
         
-        console.log(`💬 Chat from ${username}: "${message.substring(0, 50)}${message.length > 50 ? '...' : ''}"`);         
-        const response = await aiService.chat(message, username);
+        console.log(`💬 Chat from ${username}: "${message.substring(0, 50)}${message.length > 50 ? '...' : ''}"${preferredModel ? ` [model: ${preferredModel}]` : ''}`);         
+        const response = await aiService.chat(message, username, preferredModel);
         res.json(response);
     } catch (error) {
         console.error('❌ Chat error:', error.message);
@@ -291,6 +291,31 @@ app.post('/api/ai/chat', auth.authMiddleware, async (req, res) => {
             response: 'Sorry, I encountered an error. Please try again.'
         });
     }
+});
+
+// AI Model Switch Route
+app.post('/api/ai/model', auth.authMiddleware, (req, res) => {
+    try {
+        const { model } = req.body;
+        const username = req.user.username;
+        console.log(`🔄 ${username} switched AI model to: ${model}`);
+        res.json({ success: true, model, message: `Switched to ${model === 'cerebras' ? 'OpenAI (GPT-OSS 120B)' : 'Gemini 2.5 Flash'}` });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// AI Current Model Info Route
+app.get('/api/ai/model', auth.authMiddleware, (req, res) => {
+    const hasCerebras = !!process.env.CEREBRAS_API_KEY;
+    const hasGemini = !!process.env.GEMINI_API_KEY;
+    res.json({
+        models: [
+            ...(hasGemini ? [{ id: 'gemini', name: 'Gemini', description: 'Google Gemini 2.5 Flash', available: true }] : []),
+            ...(hasCerebras ? [{ id: 'cerebras', name: 'OpenAI', description: 'Cerebras GPT-OSS 120B', available: true }] : [])
+        ],
+        defaultModel: hasGemini ? 'gemini' : 'cerebras'
+    });
 });
 
 // Get Chat History Route

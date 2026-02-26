@@ -25,7 +25,7 @@ Start-Sleep -Seconds 3
 # Optional: Start Python AI Service
 Write-Host ""
 Write-Host "🐍 Python AI Service available at: services/" -ForegroundColor Magenta
-Write-Host "   To start Python service, run: cd services && python -m uvicorn main:app --reload --port 8000" -ForegroundColor Gray
+Write-Host "   To start Python service, run: cd services; python -m uvicorn main:app --reload --port 8000" -ForegroundColor Gray
 Write-Host ""
 
 Write-Host "✅ Dashboard is starting!" -ForegroundColor Green
