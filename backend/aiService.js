@@ -107,8 +107,8 @@ async function getSystemContext() {
         
         // Calculate costs (assuming $0.12 per kWh)
         const COST_PER_KWH = 0.12;
-        const load1Summary = todaySummary.rows.find(r => r.load_number === 1) || { energy_kwh: 0, avg_power: 0, max_power: 0 };
-        const load2Summary = todaySummary.rows.find(r => r.load_number === 2) || { energy_kwh: 0, avg_power: 0, max_power: 0 };
+        const load1Summary = todaySummary.rows.find(r => r.load_number === 1) || { energy_kwh: 0, avg_power: 0, max_power: 0, max_voltage: 0 };
+        const load2Summary = todaySummary.rows.find(r => r.load_number === 2) || { energy_kwh: 0, avg_power: 0, max_power: 0, max_voltage: 0 };
         
         const totalEnergyKWh = parseFloat(load1Summary.energy_kwh || 0) + parseFloat(load2Summary.energy_kwh || 0);
         const totalCost = totalEnergyKWh * COST_PER_KWH;
@@ -127,13 +127,14 @@ async function getSystemContext() {
                 energy_kwh: parseFloat(load1Summary.energy_kwh) || 0,
                 avg_power: parseFloat(load1Summary.avg_power) || 0,
                 max_power: parseFloat(load1Summary.max_power) || 0,
+                max_voltage: parseFloat(load1Summary.max_voltage) || 0,
                 cost: (parseFloat(load1Summary.energy_kwh) || 0) * COST_PER_KWH,
-                threshold: relayConfig.rows.find(r => r.load_number === 1)?.power_threshold || 120
+                threshold: relayConfig.rows.find(r => r.load_number === 1)?.power_threshold || 450
             },
             {
                 id: 2,
-                name: 'AC Bulb',
-                device_type: 'bulb',
+                name: 'AC Fan',
+                device_type: 'fan',
                 type: 'AC',
                 is_on: load2Data.relay_state,
                 voltage: parseFloat(load2Data.voltage) || 0,
@@ -142,8 +143,9 @@ async function getSystemContext() {
                 energy_kwh: parseFloat(load2Summary.energy_kwh) || 0,
                 avg_power: parseFloat(load2Summary.avg_power) || 0,
                 max_power: parseFloat(load2Summary.max_power) || 0,
+                max_voltage: parseFloat(load2Summary.max_voltage) || 0,
                 cost: (parseFloat(load2Summary.energy_kwh) || 0) * COST_PER_KWH,
-                threshold: relayConfig.rows.find(r => r.load_number === 2)?.power_threshold || 15
+                threshold: relayConfig.rows.find(r => r.load_number === 2)?.power_threshold || 300
             }
         ];
         
@@ -191,8 +193,8 @@ async function refreshContext() {
             console.log(' AI Service: Using minimal mock context due to data failure');
             systemContext = {
                 loads: [
-                    { id: 1, name: 'AC Heater', power: 0, is_on: false, voltage: 0, current: 0, energy_kwh: 0, cost: 0, threshold: 0 }, 
-                    { id: 2, name: 'AC Bulb', power: 0, is_on: false, voltage: 0, current: 0, energy_kwh: 0, cost: 0, threshold: 0 }
+                    { id: 1, name: 'AC Heater', power: 0, is_on: false, voltage: 0, current: 0, energy_kwh: 0, cost: 0, threshold: 450 }, 
+                    { id: 2, name: 'AC Fan', power: 0, is_on: false, voltage: 0, current: 0, energy_kwh: 0, cost: 0, threshold: 300 }
                 ],
                 environment: { temperature: 25, humidity: 50 },
                 summary: { activeLoads: 0, totalLoads: 2, totalPowerW: "0", totalEnergyKWh: "0", totalCost: "0", avgPower: "0" },
@@ -363,14 +365,26 @@ function detectAnomalies(context) {
             });
         }
         
-        // Anomaly: Heater on too long with high power
-        if (load.device_type === 'heater' && load.is_on && power > 800) {
+        // Anomaly: Heater exceeding max threshold (450W)
+        if (load.device_type === 'heater' && load.is_on && power > 450) {
             anomalies.push({
                 type: 'excessive_heating',
                 loadId: load.id,
                 loadName: load.name,
                 severity: 'warning',
-                message: `${load.name} consuming high power (${power.toFixed(1)}W)`,
+                message: `${load.name} exceeds threshold at ${power.toFixed(1)}W (max 450W)`,
+                action: 'turn_off'
+            });
+        }
+        
+        // Anomaly: Fan exceeding max threshold (300W)
+        if (load.device_type === 'fan' && load.is_on && power > 300) {
+            anomalies.push({
+                type: 'fan_overload',
+                loadId: load.id,
+                loadName: load.name,
+                severity: 'warning',
+                message: `${load.name} exceeds threshold at ${power.toFixed(1)}W (max 300W)`,
                 action: 'turn_off'
             });
         }
@@ -520,14 +534,11 @@ ${context.loads.map(l => `• ${l.name}: $${parseFloat(l.cost || 0).toFixed(4)}`
     if (q.includes('save') || q.includes('reduce') || q.includes('tip')) {
         const tips = [];
         context.loads.forEach(load => {
-            if (load.device_type === 'heater' && load.is_on && parseFloat(load.power || 0) > 700) {
-                tips.push('• Turn off heater when not needed - saves ~$0.50/hour');
+            if (load.device_type === 'heater' && load.is_on && parseFloat(load.power || 0) > 450) {
+                tips.push('• Heater exceeding 450W threshold - consider turning it off to save energy');
             }
-            if (load.device_type === 'bulb' && load.is_on) {
-                const hour = new Date().getHours();
-                if (hour >= 9 && hour < 17) {
-                    tips.push('• Use natural daylight instead of bulb - saves ~$0.05/hour');
-                }
+            if (load.device_type === 'fan' && load.is_on && parseFloat(load.power || 0) > 300) {
+                tips.push('• Fan exceeding 300W threshold - check if high-speed mode is necessary');
             }
         });
         
@@ -599,10 +610,10 @@ async function chat(userQuery, username = 'guest', preferredModel = null) {
 CONTEXT AND REAL-TIME DATA:
 Time: ${context.timestamp}
 - Load 1 (AC Heater): ${context.loads[0].power.toFixed(1)}W [${context.loads[0].is_on ? 'ON' : 'OFF'}]
-- Load 2 (AC Bulb): ${context.loads[1].power.toFixed(1)}W [${context.loads[1].is_on ? 'ON' : 'OFF'}]
+- Load 2 (AC Fan): ${context.loads[1].power.toFixed(1)}W [${context.loads[1].is_on ? 'ON' : 'OFF'}]
 - Environment: ${context.environment.temperature}°C, ${context.environment.humidity}% Humidity
 - Total Power: ${context.summary.totalPowerW}W | Total Energy Today: ${context.summary.totalEnergyKWh} kWh
-- Configured Thresholds: Heater=${context.loads[0].threshold}W, Bulb=${context.loads[1].threshold}W
+- Configured Thresholds: Heater=${context.loads[0].threshold}W (max 450W), Fan=${context.loads[1].threshold}W (max 300W)
 
 ${chatContext}
 USER INPUT: "${userQuery}"
@@ -753,7 +764,7 @@ INSTRUCTIONS:
         // If even fallback fails, return friendly error
         return { 
             success: true, 
-            response: `I'm having trouble connecting to the AI service right now. However, I can see your loads are working:\n\n**Status:**\n• AC Heater: ${currentData?.load1?.power || 0}W\n• AC Bulb: ${currentData?.load2?.power || 0}W\n\nPlease try asking your question again, or use the quick question buttons.`,
+            response: `I'm having trouble connecting to the AI service right now. However, I can see your loads are working:\n\n**Status:**\n• AC Heater: ${currentData?.load1?.power || 0}W\n• AC Fan: ${currentData?.load2?.power || 0}W\n\nPlease try asking your question again, or use the quick question buttons.`,
             dataSource: 'error-fallback'
         };
     }
@@ -767,7 +778,7 @@ function generateFallbackResponse(userQuery, context, username) {
     if (query.includes('power') || query.includes('consumption') || query.includes('usage')) {
         response = `**Current Power Usage**\n\n` +
             `**AC Heater:** ${context.loads[0].power.toFixed(1)}W (${context.loads[0].is_on ? 'ON' : 'OFF'})\n` +
-            `**AC Bulb:** ${context.loads[1].power.toFixed(1)}W (${context.loads[1].is_on ? 'ON' : 'OFF'})\n` +
+            `**AC Fan:** ${context.loads[1].power.toFixed(1)}W (${context.loads[1].is_on ? 'ON' : 'OFF'})\n` +
             `**Total:** ${context.summary.totalPowerW}W\n\n` +
             `Today's energy: ${context.summary.totalEnergyKWh} kWh ($${context.summary.totalCost})`;
     }
@@ -797,14 +808,15 @@ function generateFallbackResponse(userQuery, context, username) {
             `• Today's Energy: ${context.loads[0].energy_kwh.toFixed(6)} kWh\n` +
             `• Today's Cost: $${context.loads[0].cost.toFixed(4)}`;
     }
-    else if (query.includes('bulb') || query.includes('light') || query.includes('load 2')) {
-        response = `**AC Bulb Status**\n\n` +
+    else if (query.includes('fan') || query.includes('load 2')) {
+        response = `**AC Fan Status**\n\n` +
             `• Status: ${context.loads[1].is_on ? 'ON (Active)' : 'OFF (Inactive)'}\n` +
             `• Power: ${context.loads[1].power.toFixed(1)}W\n` +
             `• Voltage: ${context.loads[1].voltage.toFixed(1)}V\n` +
             `• Current: ${context.loads[1].current.toFixed(3)}A\n` +
             `• Today's Energy: ${context.loads[1].energy_kwh.toFixed(6)} kWh\n` +
-            `• Today's Cost: $${context.loads[1].cost.toFixed(4)}`;
+            `• Today's Cost: $${context.loads[1].cost.toFixed(4)}\n` +
+            `• Max Threshold: 300W`;
     }
     else if (query.includes('pattern') || query.includes('analyze') || query.includes('predict')) {
         response = `**Usage Analysis**\n\n` +
@@ -820,7 +832,7 @@ function generateFallbackResponse(userQuery, context, username) {
         response = `**Hello!** I'm your Smart Home AI Assistant.\n\n` +
             `**Current Status:**\n` +
             `• AC Heater: ${context.loads[0].power.toFixed(1)}W (${context.loads[0].is_on ? 'ON' : 'OFF'})\n` +
-            `• AC Bulb: ${context.loads[1].power.toFixed(1)}W (${context.loads[1].is_on ? 'ON' : 'OFF'})\n` +
+            `• AC Fan: ${context.loads[1].power.toFixed(1)}W (${context.loads[1].is_on ? 'ON' : 'OFF'})\n` +
             `• Temperature: ${context.environment.temperature}°C\n` +
             `• Total Power: ${context.summary.totalPowerW}W\n\n` +
             `**Ask me about:**\n` +
@@ -866,23 +878,20 @@ async function getRecommendations() {
     context.loads.forEach(load => {
         const power = parseFloat(load.power || 0);
         
-        if (load.device_type === 'heater' && load.is_on && power > 800) {
+        if (load.device_type === 'heater' && load.is_on && power > 450) {
             recommendations.push({
                 device: load.name,
-                tip: 'Heater using high power. Consider lowering temperature.',
+                tip: `Heater exceeding 450W threshold (${power.toFixed(1)}W). Turn off or reduce usage.`,
                 savings: '~15% energy savings'
             });
         }
         
-        if (load.device_type === 'bulb' && load.is_on) {
-            const hour = new Date().getHours();
-            if (hour >= 9 && hour < 17) {
-                recommendations.push({
-                    device: load.name,
-                    tip: 'Light is on during daytime. Use natural light if possible.',
-                    savings: '~5% energy savings'
-                });
-            }
+        if (load.device_type === 'fan' && load.is_on && power > 300) {
+            recommendations.push({
+                device: load.name,
+                tip: `Fan exceeding 300W threshold (${power.toFixed(1)}W). Switch to lower speed or turn off.`,
+                savings: '~10% energy savings'
+            });
         }
     });
 
@@ -1272,30 +1281,30 @@ async function fallbackAIDecision(context) {
     context.loads.forEach(load => {
         const power = parseFloat(load.power || 0);
         
-        // Turn off heater if power too high
-        if (load.device_type === 'heater' && load.is_on && power > 900) {
+        // Turn off heater if power exceeds 450W threshold
+        if (load.device_type === 'heater' && load.is_on && power > 450) {
             actions.push({
                 loadId: load.id,
                 action: 'off',
-                reason: 'Power exceeds safe threshold (900W)'
+                reason: `Heater exceeds 450W threshold (${power.toFixed(1)}W)`
             });
         }
         
-        // Turn off bulb during daytime (9 AM - 5 PM)
-        if (load.device_type === 'bulb' && load.is_on && hour >= 9 && hour < 17) {
+        // Turn off fan if power exceeds 300W threshold
+        if (load.device_type === 'fan' && load.is_on && power > 300) {
             actions.push({
                 loadId: load.id,
                 action: 'off',
-                reason: 'Daytime detected - use natural light'
+                reason: `Fan exceeds 300W threshold (${power.toFixed(1)}W)`
             });
         }
         
-        // Turn on bulb in evening if off (6 PM - 11 PM)
-        if (load.device_type === 'bulb' && !load.is_on && hour >= 18 && hour < 23) {
+        // Turn off fan at night (11 PM - 6 AM) if running
+        if (load.device_type === 'fan' && load.is_on && (hour >= 23 || hour < 6)) {
             actions.push({
                 loadId: load.id,
-                action: 'on',
-                reason: 'Evening time - lighting recommended'
+                action: 'off',
+                reason: 'Night hours - fan turned off to save energy'
             });
         }
     });
