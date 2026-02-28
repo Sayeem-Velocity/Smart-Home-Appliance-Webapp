@@ -1,4 +1,4 @@
-# AI Dashboard Capabilities a
+# AI Dashboard Capabilities
 
 ## Overview
 
