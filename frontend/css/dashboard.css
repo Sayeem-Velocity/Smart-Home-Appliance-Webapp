@@ -116,7 +116,7 @@ body {
 }
 
 .logo i {
-    font-size: 2rem;
+    font-size: 1.8rem;
     background: var(--gradient-blue);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;

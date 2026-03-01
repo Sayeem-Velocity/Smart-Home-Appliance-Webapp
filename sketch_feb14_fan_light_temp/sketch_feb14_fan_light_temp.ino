@@ -14,7 +14,7 @@ const char* WIFI_SSID = "Adiba";
 const char* WIFI_PASSWORD = "adiba2001";
 
 /*************** MQTT CONFIG ****************/
-const char* MQTT_BROKER = "10.127.149.169";
+const char* MQTT_BROKER = "10.143.63.169";
 const int   MQTT_PORT   = 1883;
 const char* MQTT_CLIENT_ID = "ESP32_HeaterFan";
 
@@ -57,7 +57,7 @@ DHT dht(DHT_PIN, DHTTYPE);
 #define NUM_CYCLES 10
 #define CURRENT_SENSITIVITY 0.100
 
-#define CURRENT1_CAL_FACTOR 0.1
+#define CURRENT1_CAL_FACTOR 0.15
 #define VOLTAGE1_CAL_FACTOR 400.0  // Adjusted to keep voltage 250-300V range
 #define CURRENT2_CAL_FACTOR 0.03
 #define VOLTAGE2_CAL_FACTOR 400.0  // Adjusted to keep voltage 250-300V range

@@ -13,11 +13,11 @@
 #include <ArduinoJson.h>
 
 /*************** WiFi CONFIG ******************/
-const char* WIFI_SSID = "YOUR_WIFI_SSID";        // Replace with your WiFi SSID
-const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD"; // Replace with your WiFi password
+const char* WIFI_SSID = "Sayeem@Velocity_2.4G";
+const char* WIFI_PASSWORD = "ReDdEvIlS2024";
 
 /*************** MQTT CONFIG ******************/
-const char* MQTT_SERVER = "192.168.1.100";  // Replace with your server IP
+const char* MQTT_SERVER = "192.168.0.189";  // Replace with your server IP
 const int MQTT_PORT = 1883;
 const char* MQTT_CLIENT_ID = "ESP32_LoadMonitor";
 
